@@ -1,0 +1,13 @@
+{
+  "name": "kenshin-dekitayo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check public/app.js && node --check public/detectors/create-mouth-detector.js && node --check public/detectors/create-still-detector.js && node --check public/detectors/create-vision-detector.js && node --check public/detectors/mediapipe-mouth-detector.js && node --check public/detectors/mediapipe-still-detector.js && node --check public/detectors/mediapipe-vision-detector.js && node --check public/detectors/mock-mouth-detector.js && node --check public/detectors/mock-still-detector.js && node --check public/detectors/mock-vision-detector.js && node --check public/settings.js && node --check public/sw.js"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.32"
+  }
+}

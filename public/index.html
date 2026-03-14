@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <title>ピタッとけんしん</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script>
+      (function () {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
+              registration.unregister();
+            });
+          });
+        }
+        if ("caches" in window) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
+              caches.delete(key);
+            });
+          });
+        }
+      })();
+    </script>
+    <script defer src="./app.js?build=v97"></script>
+  </head>
+  <body>
+    <div class="debug-build-badge">DEBUG v97</div>
+    <div class="app-shell">
+      <section id="home-screen" class="screen">
+        <header class="hero home-hero">
+          <div class="home-hero-layout">
+            <div class="home-hero-copy">
+              <p class="eyebrow">学校検診 練習アプリ</p>
+              <h1>ピタッとけんしん</h1>
+              <p class="hero-subtitle">学校検診の事前練習をまとめて準備できます</p>
+              <p class="hero-copy">
+                AIで「じっとする」「口をあける」「向きを答える」など、できてほしいことを見える化しながら練習できます。
+              </p>
+            </div>
+            <figure class="home-hero-figure">
+              <img src="./assets/top-hero-doctor.png" alt="えがおの せんせい" />
+            </figure>
+          </div>
+          <p id="app-error" class="app-error hidden"></p>
+        </header>
+
+        <main class="home-layout">
+          <section class="card mode-card mode-card-active">
+            <div class="course-card-layout">
+              <div class="course-card-copy">
+                <p class="mode-badge">静止コース</p>
+                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">🩺</span><span>ピタッと<br />ポーズ！</span></h2>
+                <p class="support-text">身体の動きを少なくして、検診中に姿勢を保つ練習を行います。</p>
+                <ul class="course-list" aria-label="静止コースの検診内容">
+                  <li>内科</li>
+                  <li>眼科</li>
+                  <li>耳鼻科</li>
+                  <li>心電図</li>
+                </ul>
+              </div>
+              <div class="course-card-art course-card-art-side course-card-art-still">
+                <img class="course-card-art-image" src="./assets/course-still-crop.png" alt="静止コースのイメージ" />
+              </div>
+            </div>
+            <button id="start-still-mode" class="primary-button" type="button">静止コースを開始</button>
+          </section>
+
+          <section class="card mode-card mode-card-active">
+            <div class="course-card-layout">
+              <div class="course-card-copy">
+                <p class="mode-badge">口腔コース</p>
+                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち アーン</span></h2>
+                <p class="support-text">口を開ける、歯を見せるなど、口腔検査の動きを練習します。</p>
+                <ul class="course-list" aria-label="口腔コースの検診内容">
+                  <li>歯科</li>
+                  <li>口腔</li>
+                </ul>
+              </div>
+              <div class="course-card-art course-card-art-side">
+                <img class="course-card-art-image" src="./assets/course-mouth-crop.png" alt="口腔コースのイメージ" />
+              </div>
+            </div>
+            <button id="start-mouth-mode" class="primary-button" type="button">口腔コースを開始</button>
+          </section>
+
+          <section class="card mode-card mode-card-active">
+            <div class="course-card-layout">
+              <div class="course-card-copy">
+                <p class="mode-badge">視力コース</p>
+                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">👁️</span><span>どっち<br />むいてる？</span></h2>
+                <p class="support-text">片目を隠しながら、ランドルト環の向きを答える練習を行います。</p>
+                <ul class="course-list" aria-label="視力コースの検診内容">
+                  <li>視力</li>
+                  <li>片目を隠す</li>
+                </ul>
+              </div>
+              <div class="course-card-art course-card-art-side">
+                <img class="course-card-art-image" src="./assets/course-vision-crop.png" alt="視力コースのイメージ" />
+              </div>
+            </div>
+            <button id="start-vision-mode" class="primary-button" type="button">視力コースを開始</button>
+          </section>
+        </main>
+      </section>
+
+      <section id="still-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-home-still" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">🩺</span><span>ピタッと<br />ポーズ！</span></h1>
+          <p id="still-hero-copy" class="hero-copy">ちょうしんきに あわせて、じっと してください。</p>
+          <button id="settings-trigger-still" class="settings-trigger" type="button" aria-label="設定" title="設定">⚙</button>
+        </header>
+
+        <section id="still-exam-chooser" class="card still-exam-chooser">
+          <div class="card-heading">
+            <h2>けんさを えらぶ</h2>
+          </div>
+          <p class="support-text">じっとする まえに、なにの けんさか えらんでください。</p>
+          <div class="still-exam-grid">
+            <button class="exam-choice-button" data-exam-choice="naika" type="button">内科</button>
+            <button class="exam-choice-button" data-exam-choice="ganka" type="button">眼科</button>
+            <button class="exam-choice-button" data-exam-choice="jibika" type="button">耳鼻科</button>
+            <button class="exam-choice-button" data-exam-choice="shindenzu" type="button">心電図</button>
+          </div>
+        </section>
+
+        <main id="still-layout" class="layout hidden">
+          <section class="card card-camera">
+            <div class="card-heading">
+              <h2>かお</h2>
+              <span id="still-camera-state" class="status-chip">かめら じゅんびちゅう</span>
+            </div>
+            <div class="camera-stack">
+              <video id="still-camera" class="camera-feed" autoplay muted playsinline></video>
+              <div id="still-camera-mask" class="camera-mask hidden">
+                <div class="mask-figure"></div>
+                <p id="still-camera-help">かおが みえるように してください。</p>
+              </div>
+              <div class="guide-frame">
+                <div class="guide-body"></div>
+              </div>
+              <div id="still-heart-face-frame" class="still-heart-face-frame hidden" aria-hidden="true"></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>あんない</h2>
+              <span id="still-detector-state" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <div class="exam-icon">
+              <img id="still-custom-image" class="still-custom-image hidden" alt="じっとするモードの画像" />
+              <div id="exam-icon-shape" class="exam-icon-shape exam-naika"></div>
+            </div>
+            <p id="still-prompt-text" class="prompt-text">じっと してください。</p>
+            <p id="still-score-label" class="ratio-label">うごき: 0.000 / 0.018</p>
+            <button id="still-manual-trigger" class="manual-trigger hidden" type="button">ぼたんを おして じっとする</button>
+            <div id="still-celebration" class="celebration hidden">
+              <div class="confetti-layer"></div>
+              <span>じょうずに できた すごい！</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>がんばりメーター</h2>
+              <span id="still-provider-chip" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <p id="still-provider-help" class="support-text"></p>
+            <div class="progress-meta">
+              <span id="still-progress-label">0%</span>
+              <strong id="still-timer-label">0.0 / 5 びょう</strong>
+            </div>
+            <div class="progress-track">
+              <div id="still-progress-fill" class="progress-fill"></div>
+            </div>
+          </section>
+        </main>
+      </section>
+
+      <section id="mouth-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-home-mouth" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち アーン</span></h1>
+          <p class="hero-copy">おくちを あけて、そのまま きーぷ してみましょう。</p>
+          <button id="settings-trigger-mouth" class="settings-trigger" type="button" aria-label="設定" title="設定">⚙</button>
+        </header>
+
+        <main class="layout">
+          <section class="card card-camera">
+            <div class="card-heading">
+              <h2>かお</h2>
+              <span id="camera-state" class="status-chip">かめら じゅんびちゅう</span>
+            </div>
+            <div class="camera-stack">
+              <video id="camera" class="camera-feed" autoplay muted playsinline></video>
+              <div id="camera-mask" class="camera-mask hidden">
+                <div class="mask-figure"></div>
+                <p id="camera-help">かおが みえるように してください。</p>
+              </div>
+              <div class="guide-frame">
+                <div class="guide-mouth"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>あんない</h2>
+              <span id="detector-state" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <div id="mouth-mode-switch" class="mouth-mode-switch" role="tablist" aria-label="おくちモード">
+              <button id="mouth-mode-open" class="mouth-mode-button active" type="button" data-mouth-mode="open" aria-pressed="true">アーン</button>
+              <button id="mouth-mode-eee" class="mouth-mode-button" type="button" data-mouth-mode="eee" aria-pressed="false">イー</button>
+            </div>
+            <div class="prompt-illustration">
+              <div class="face-circle" id="mouth-face">
+                <div class="eye left"></div>
+                <div class="eye right"></div>
+                <div id="illustration-mouth" class="illustration-mouth"></div>
+              </div>
+            </div>
+            <p id="prompt-text" class="prompt-text">おくち を ひらいてください。</p>
+            <p id="ratio-label" class="ratio-label">おくち: 0.00 / 0.56</p>
+            <button id="manual-trigger" class="manual-trigger hidden" type="button">ぼたんを おして おくちを あける</button>
+            <div id="celebration" class="celebration hidden">
+              <div class="confetti-layer"></div>
+              <span>じょうずに できた すごい！</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>がんばりメーター</h2>
+              <span id="provider-chip" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <p id="provider-help" class="support-text"></p>
+            <div class="progress-meta">
+              <span id="progress-label">0%</span>
+              <strong id="timer-label">0.0 / 5 びょう</strong>
+            </div>
+            <div class="progress-track">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+          </section>
+        </main>
+      </section>
+
+      <section id="vision-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-home-vision" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">👁️</span><span>どっち<br />むいてる？</span></h1>
+          <p class="hero-copy">かためを とじて、ランドルトかんの あいている むきを えらびます。</p>
+          <button id="settings-trigger-vision" class="settings-trigger" type="button" aria-label="設定" title="設定">⚙</button>
+        </header>
+
+        <main class="layout">
+          <section class="card card-camera">
+            <div class="card-heading">
+              <h2>かお</h2>
+              <span id="vision-camera-state" class="status-chip">かめら じゅんびちゅう</span>
+            </div>
+            <div class="camera-stack">
+              <video id="vision-camera" class="camera-feed" autoplay muted playsinline></video>
+              <div id="vision-camera-mask" class="camera-mask hidden">
+                <div class="mask-figure"></div>
+                <p id="vision-camera-help">かおが みえるように してください。</p>
+              </div>
+              <div class="guide-frame">
+                <div class="guide-face-turn"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>ランドルトかん</h2>
+              <span id="vision-detector-state" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <div class="vision-illustration">
+              <div id="vision-eye-coach" class="vision-eye-coach target-left" aria-hidden="true">
+                <div class="vision-face">
+                  <div class="vision-hair"></div>
+                  <div class="vision-eye vision-eye-left"></div>
+                  <div class="vision-eye vision-eye-right"></div>
+                  <div class="vision-mouth"></div>
+                  <div class="vision-hand"></div>
+                </div>
+              </div>
+              <div id="vision-landolt" class="vision-landolt landolt-right" aria-label="ランドルトかん">C</div>
+            </div>
+            <div class="vision-answer-grid" id="vision-answer-grid">
+              <button class="answer-button" data-answer="up" type="button">うえ</button>
+              <button class="answer-button" data-answer="right" type="button">みぎ</button>
+              <button class="answer-button" data-answer="left" type="button">ひだり</button>
+              <button class="answer-button" data-answer="down" type="button">した</button>
+            </div>
+            <p id="vision-prompt-text" class="prompt-text">ひだりめ を とじて、むきを えらんでください。</p>
+            <p id="vision-score-label" class="ratio-label">1 / 8 もん　ひだりめ: 0.00 / みぎめ: 0.00</p>
+            <pre id="vision-debug-label" class="vision-debug-label">leftClosed: false | rightClosed: false</pre>
+            <button id="vision-manual-trigger" class="manual-trigger hidden" type="button">ぼたんを おして かためを とじる</button>
+            <div id="vision-celebration" class="celebration hidden">
+              <div class="confetti-layer"></div>
+              <span>じょうずに できた すごい！</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>がんばりメーター</h2>
+              <span id="vision-provider-chip" class="status-chip">じゅんびちゅう</span>
+            </div>
+            <p id="vision-provider-help" class="support-text"></p>
+            <div class="progress-meta">
+              <span id="vision-progress-label">0 / 8</span>
+              <strong id="vision-timer-label">ひだりめ 1 / 4</strong>
+            </div>
+            <div class="progress-track">
+              <div id="vision-progress-fill" class="progress-fill"></div>
+            </div>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <dialog id="settings-dialog" class="settings-dialog">
+      <div class="settings-panel">
+        <div class="settings-header">
+          <h2>せってい</h2>
+          <button id="close-settings" class="close-button" type="button">閉じる</button>
+        </div>
+
+        <label class="field">
+          <span>きーぷ じかん</span>
+          <input id="setting-target-seconds" type="range" min="2" max="10" step="1" value="5" />
+          <output id="setting-target-seconds-value">5</output>
+        </label>
+
+        <label class="field">
+          <span>心電図 じっと秒数</span>
+          <input id="setting-ecg-target-seconds" type="range" min="5" max="30" step="1" value="10" />
+          <output id="setting-ecg-target-seconds-value">10</output>
+        </label>
+
+        <label class="field">
+          <span>アー 縦開きしきい値</span>
+          <input id="setting-mouth-threshold" type="range" min="0.2" max="1.0" step="0.01" value="0.56" />
+          <output id="setting-mouth-threshold-value">0.56</output>
+        </label>
+
+        <label class="field">
+          <span>イー 横広がりしきい値</span>
+          <input id="setting-mouth-eee-width-threshold" type="range" min="0.2" max="0.8" step="0.01" value="0.38" />
+          <output id="setting-mouth-eee-width-threshold-value">0.38</output>
+        </label>
+
+        <label class="field">
+          <span>イー 縦開き下限</span>
+          <input id="setting-mouth-eee-gap-threshold" type="range" min="0.04" max="0.36" step="0.01" value="0.10" />
+          <output id="setting-mouth-eee-gap-threshold-value">0.10</output>
+        </label>
+
+        <label class="field">
+          <span>じっと しきいち</span>
+          <input id="setting-still-threshold" type="range" min="0.005" max="0.08" step="0.001" value="0.018" />
+          <output id="setting-still-threshold-value">0.018</output>
+        </label>
+
+        <label class="field">
+          <span>かため とじる しきいち</span>
+          <input id="setting-eye-threshold" type="range" min="0.08" max="0.35" step="0.01" value="0.19" />
+          <output id="setting-eye-threshold-value">0.19</output>
+        </label>
+
+        <label class="field">
+          <span>けんさ しゅるい</span>
+          <select id="setting-exam-type">
+            <option value="naika">ないか</option>
+            <option value="jibika">じびか</option>
+            <option value="ganka">がんか</option>
+            <option value="shindenzu">しんでんず</option>
+          </select>
+        </label>
+
+        <div class="field field-stack">
+          <span>じっとする がぞう</span>
+          <input id="setting-still-image" type="file" accept="image/*" />
+          <img id="setting-still-image-preview" class="settings-image-preview hidden" alt="えらんだ がぞうの プレビュー" />
+          <button id="clear-still-image" class="secondary-button" type="button">がぞうを もどす</button>
+        </div>
+
+        <label class="field checkbox-field">
+          <input id="setting-hide-camera" type="checkbox" />
+          <span>かめらを かくす</span>
+        </label>
+
+        <label class="field checkbox-field">
+          <input id="setting-muted" type="checkbox" />
+          <span>おとを ださない</span>
+        </label>
+
+        <button id="save-settings" class="primary-button" type="button">設定を保存</button>
+        <button id="reset-progress" class="secondary-button" type="button">判定とゲージをリセット</button>
+      </div>
+    </dialog>
+  </body>
+</html>
