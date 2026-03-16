@@ -25,7 +25,7 @@
         }
       })();
     </script>
-    <script defer src="./app.js?build=v98"></script>
+    <script defer src="./app.js?build=v99"></script>
   </head>
   <body>
     <div class="debug-build-badge">Version 1.00</div>
@@ -73,7 +73,7 @@
             <div class="course-card-layout">
               <div class="course-card-copy">
                 <p class="mode-badge">口腔コース</p>
-                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち アーン</span></h2>
+                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち<br />アーン</span></h2>
                 <p class="support-text">口を開ける、歯を見せるなど、口腔検査の動きを練習します。</p>
                 <ul class="course-list" aria-label="口腔コースの検診内容">
                   <li>歯科</li>
@@ -185,7 +185,7 @@
       <section id="mouth-screen" class="screen hidden">
         <header class="hero">
           <button id="back-home-mouth" class="back-button" type="button">もどる</button>
-          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち アーン</span></h1>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">🦷</span><span>おくち<br />アーン</span></h1>
           <p class="hero-copy">おくちを あけて、そのまま きーぷ してみましょう。</p>
           <button id="settings-trigger-mouth" class="settings-trigger" type="button" aria-label="設定" title="設定">⚙</button>
         </header>
@@ -293,6 +293,7 @@
               </div>
               <div id="vision-landolt" class="vision-landolt landolt-right" aria-label="ランドルトかん">C</div>
             </div>
+            <div id="vision-answer-feedback" class="vision-answer-feedback" aria-live="polite"></div>
             <div class="vision-answer-grid" id="vision-answer-grid">
               <button class="answer-button" data-answer="up" type="button">うえ</button>
               <button class="answer-button" data-answer="right" type="button">みぎ</button>

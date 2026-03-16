@@ -1,6 +1,6 @@
 ﻿window.__appModuleLoaded = true;
 
-const CACHE_NAME = "kenshin-dekitayo-v98";
+const CACHE_NAME = "kenshin-dekitayo-v99";
 const SETTINGS_KEY = "kenshin-dekitayo.settings";
 const MOUTH_EEE_GAP_THRESHOLD_MIN = 0.1;
 const SUCCESS_MESSAGE = "じょうずに できた すごい！";
@@ -29,7 +29,11 @@ const RIGHT_EYE_CLOSED_DELTA = 0.012;
 const EYE_OPEN_FLOOR = 0.16;
 const RIGHT_EYE_OPEN_FLOOR = 0.135;
 const RIGHT_EYE_THRESHOLD_BONUS = 0.045;
-const VISION_EYE_CONFIRM_HOLD_MS = 2000;
+const VISION_EYE_CONFIRM_HOLD_MS = 1200;
+const VISION_EYE_OCCLUDED_MAX = 0.035;
+const VISION_EYE_RELAXED_BONUS = 0.08;
+const VISION_EYE_OPEN_MIN = 0.08;
+const VISION_ANSWER_FEEDBACK_MS = 900;
 const STILL_FRONT_YAW_MIN = 0.72;
 const STILL_FRONT_YAW_MAX = 1.34;
 const STILL_SIDE_YAW_LEFT_MAX = 0.48;
@@ -136,6 +140,7 @@ const ui = {
     celebration: document.getElementById("vision-celebration"),
     eyeCoach: document.getElementById("vision-eye-coach"),
     landolt: document.getElementById("vision-landolt"),
+    feedback: document.getElementById("vision-answer-feedback"),
     answerGrid: document.getElementById("vision-answer-grid"),
     answerButtons: Array.from(document.querySelectorAll("#vision-answer-grid .answer-button")),
   },
@@ -195,6 +200,9 @@ function createVisionState() {
     confirmStartedAt: 0,
     lastTargetEye: "left",
     requiresNeutralBeforeConfirm: false,
+    answerFeedback: "",
+    answerFeedbackUntil: 0,
+    advanceTimeoutId: 0,
   };
 }
 
@@ -406,15 +414,15 @@ function setWidth(node, value) {
   }
 }
 
-function playSuccessFanfare() {
+function getAudioContext() {
   const settings = readSettings();
   if (settings.muted) {
-    return;
+    return null;
   }
 
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) {
-    return;
+    return null;
   }
 
   if (!audioContext) {
@@ -425,21 +433,108 @@ function playSuccessFanfare() {
     audioContext.resume().catch(() => {});
   }
 
-  const now = audioContext.currentTime;
+  return audioContext;
+}
+
+function playVisionCorrectSound() {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return;
+  }
+
+  const now = ctx.currentTime;
+  const notes = [
+    { frequency: 988.0, duration: 0.12, delay: 0 },
+    { frequency: 1318.51, duration: 0.24, delay: 0.12 },
+  ];
+  notes.forEach((note) => {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(note.frequency, now + note.delay);
+    gain.gain.setValueAtTime(0.0001, now + note.delay);
+    gain.gain.exponentialRampToValueAtTime(0.12, now + note.delay + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + note.delay + note.duration);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start(now + note.delay);
+    oscillator.stop(now + note.delay + note.duration + 0.02);
+  });
+}
+
+function playSuccessFanfare() {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return;
+  }
+
+  const now = ctx.currentTime;
   const notes = [523.25, 659.25, 783.99, 1046.5];
   notes.forEach((frequency, index) => {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
     oscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(frequency, now + index * 0.11);
     gain.gain.setValueAtTime(0.0001, now + index * 0.11);
     gain.gain.exponentialRampToValueAtTime(0.16, now + index * 0.11 + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.11 + 0.24);
     oscillator.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(ctx.destination);
     oscillator.start(now + index * 0.11);
     oscillator.stop(now + index * 0.11 + 0.26);
   });
+}
+
+function clearVisionAdvanceTimeout(state) {
+  if (state.advanceTimeoutId) {
+    clearTimeout(state.advanceTimeoutId);
+    state.advanceTimeoutId = 0;
+  }
+}
+
+function resetVisionProgressState(state) {
+  clearVisionAdvanceTimeout(state);
+  state.selectedAnswer = "";
+  state.questionDirections = createVisionQuestionSet();
+  state.questionIndex = 0;
+  state.successLocked = false;
+  state.eyeConfirmed = false;
+  state.instructionStartedAt = 0;
+  state.confirmStartedAt = 0;
+  state.lastTargetEye = "left";
+  state.requiresNeutralBeforeConfirm = false;
+  state.answerFeedback = "";
+  state.answerFeedbackUntil = 0;
+}
+
+function showVisionAnswerFeedback(state, kind) {
+  state.answerFeedback = kind;
+  state.answerFeedbackUntil = Date.now() + VISION_ANSWER_FEEDBACK_MS;
+}
+
+function advanceVisionQuestion(state) {
+  clearVisionAdvanceTimeout(state);
+  state.selectedAnswer = "";
+  state.questionIndex += 1;
+  state.eyeConfirmed = false;
+  state.confirmStartedAt = 0;
+  state.answerFeedback = "";
+  state.answerFeedbackUntil = 0;
+  if (state.questionIndex >= state.questionDirections.length) {
+    state.completed = true;
+    state.progressSeconds = state.settings.targetSeconds;
+  } else {
+    state.successLocked = false;
+  }
+  renderAll();
+}
+
+function scheduleVisionAdvance(state) {
+  clearVisionAdvanceTimeout(state);
+  state.advanceTimeoutId = window.setTimeout(() => {
+    state.advanceTimeoutId = 0;
+    advanceVisionQuestion(state);
+  }, VISION_ANSWER_FEEDBACK_MS);
 }
 
 function syncCompletionEffects(panel, state) {
@@ -968,15 +1063,7 @@ function stopMode(mode, keepVisualState) {
     state.statusMessage = "";
     state.stillPhase = "single";
     if (mode === "vision") {
-      state.selectedAnswer = "";
-      state.questionDirections = createVisionQuestionSet();
-      state.questionIndex = 0;
-      state.successLocked = false;
-      state.eyeConfirmed = false;
-      state.instructionStartedAt = 0;
-      state.confirmStartedAt = 0;
-      state.lastTargetEye = "left";
-      state.requiresNeutralBeforeConfirm = false;
+      resetVisionProgressState(state);
     }
   }
 }
@@ -1117,16 +1204,28 @@ function getVisionEyeState(snapshot, settings) {
   const rightCloseCandidate = Math.min(rightEyeRatio, rawRightEyeRatio);
   const leftOpenCandidate = Math.max(leftEyeRatio, rawLeftEyeRatio);
   const rightOpenCandidate = Math.max(rightEyeRatio, rawRightEyeRatio);
+  const leftOccluded =
+    rawLeftEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
+    (leftCloseCandidate > 0 &&
+      leftCloseCandidate < leftThreshold + VISION_EYE_RELAXED_BONUS &&
+      rightOpenCandidate > VISION_EYE_OPEN_MIN);
+  const rightOccluded =
+    rawRightEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
+    (rightCloseCandidate > 0 &&
+      rightCloseCandidate < rightThreshold + VISION_EYE_RELAXED_BONUS &&
+      leftOpenCandidate > VISION_EYE_OPEN_MIN);
   const leftClosed =
-    leftCloseCandidate > 0 &&
-    leftCloseCandidate < leftThreshold &&
-    rightOpenCandidate > Math.max(threshold, EYE_OPEN_FLOOR) - 0.02 &&
-    rightOpenCandidate - leftCloseCandidate > LEFT_EYE_CLOSED_DELTA;
+    (leftCloseCandidate > 0 &&
+      leftCloseCandidate < leftThreshold &&
+      rightOpenCandidate > Math.max(threshold, EYE_OPEN_FLOOR) - 0.02 &&
+      rightOpenCandidate - leftCloseCandidate > LEFT_EYE_CLOSED_DELTA) ||
+    leftOccluded;
   const rightClosed =
-    rightCloseCandidate > 0 &&
-    rightCloseCandidate < rightThreshold &&
-    leftOpenCandidate > Math.max(threshold, RIGHT_EYE_OPEN_FLOOR) - 0.02 &&
-    leftOpenCandidate - rightCloseCandidate > RIGHT_EYE_CLOSED_DELTA;
+    (rightCloseCandidate > 0 &&
+      rightCloseCandidate < rightThreshold &&
+      leftOpenCandidate > Math.max(threshold, RIGHT_EYE_OPEN_FLOOR) - 0.02 &&
+      leftOpenCandidate - rightCloseCandidate > RIGHT_EYE_CLOSED_DELTA) ||
+    rightOccluded;
   const oneEyeClosed = (leftClosed && !rightClosed) || (rightClosed && !leftClosed);
   let closedEye = "none";
   if (leftClosed && !rightClosed) {
@@ -1146,6 +1245,8 @@ function getVisionEyeState(snapshot, settings) {
     threshold,
     leftThreshold,
     rightThreshold,
+    leftOccluded,
+    rightOccluded,
     leftClosed,
     rightClosed,
     oneEyeClosed,
@@ -1166,8 +1267,7 @@ function canCompleteVision(state) {
 function isVisionEyeInstructionConfirmed(state) {
   const eyeState = getVisionEyeState(state.snapshot, state.settings);
   const targetEye = getVisionTargetEye(state);
-  const relaxedThreshold = eyeState.threshold + 0.07;
-  const occludedThreshold = 0.02;
+  const relaxedThreshold = eyeState.threshold + VISION_EYE_RELAXED_BONUS;
 
   if (!state.snapshot?.hasFace) {
     return false;
@@ -1180,15 +1280,15 @@ function isVisionEyeInstructionConfirmed(state) {
   if (targetEye === "left") {
     return (
       ((eyeState.leftCloseCandidate > 0 && eyeState.leftCloseCandidate < relaxedThreshold) ||
-        eyeState.rawLeftEyeRatio <= occludedThreshold) &&
-      eyeState.rightOpenCandidate > 0.08
+        eyeState.leftOccluded) &&
+      eyeState.rightOpenCandidate > VISION_EYE_OPEN_MIN
     );
   }
 
   return (
     ((eyeState.rightCloseCandidate > 0 && eyeState.rightCloseCandidate < relaxedThreshold) ||
-      eyeState.rawRightEyeRatio <= occludedThreshold) &&
-    eyeState.leftOpenCandidate > 0.08
+      eyeState.rightOccluded) &&
+    eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN
   );
 }
 
@@ -1225,15 +1325,10 @@ function updateVisionCompletion() {
 
   if (success && !state.successLocked) {
     state.successLocked = true;
-    state.selectedAnswer = "";
-    state.questionIndex += 1;
-    state.eyeConfirmed = false;
-    state.confirmStartedAt = 0;
-    if (state.questionIndex >= state.questionDirections.length) {
-      state.completed = true;
-      state.progressSeconds = state.settings.targetSeconds;
-      return;
-    }
+    showVisionAnswerFeedback(state, "correct");
+    playVisionCorrectSound();
+    scheduleVisionAdvance(state);
+    return;
   }
 
   if (!success) {
@@ -1545,12 +1640,13 @@ function renderVision() {
   const correct = state.selectedAnswer && state.selectedAnswer === targetDirection;
   const eyeMatched = eyeState.closedEye === targetEye;
   const readyForQuestion = hasFace && state.eyeConfirmed;
+  const showCorrectFeedback = state.answerFeedback === "correct" && state.answerFeedbackUntil > Date.now();
 
   setText(ui.vision.providerChip, state.loading ? "じゅんびちゅう" : state.snapshot?.providerLabel || "じゅんびOK");
   setText(ui.vision.providerHelp, "");
   setText(
     ui.vision.detectorState,
-    state.completed ? "できた" : !hasFace ? "かおまち" : !eyeState.oneEyeClosed ? "目まち" : !eyeMatched ? "ちがう目" : !state.selectedAnswer ? "こたえまち" : correct ? "せいかい" : "ちがう",
+    state.completed ? "できた" : showCorrectFeedback ? "せいかい" : !hasFace ? "かおまち" : !eyeState.oneEyeClosed ? "目まち" : !eyeMatched ? "ちがう目" : !state.selectedAnswer ? "こたえまち" : correct ? "せいかい" : "ちがう",
   );
   setText(
     ui.vision.promptText,
@@ -1568,7 +1664,9 @@ function renderVision() {
             ? targetEye === "left"
               ? "ひだりめ を とじてください。"
               : "みぎめ を とじてください。"
-            : !state.selectedAnswer
+            : showCorrectFeedback
+              ? "あってます！ つぎへ すすみます。"
+              : !state.selectedAnswer
               ? "C の あいている むきを えらんでください。"
               : correct
                 ? "せいかい。つぎへ すすみます。"
@@ -1580,13 +1678,16 @@ function renderVision() {
   ui.vision.eyeCoach.classList.toggle("hidden", state.completed || readyForQuestion);
   ui.vision.eyeCoach.innerHTML = getVisionCoachSvg(targetEye);
   ui.vision.landolt.classList.toggle("is-visible", readyForQuestion && !state.completed);
+  ui.vision.feedback.classList.toggle("is-visible", showCorrectFeedback);
   ui.vision.answerGrid.classList.toggle("is-visible", readyForQuestion && !state.completed);
   ui.vision.debugLabel.classList.add("hidden");
   ui.vision.manualTrigger.classList.toggle("hidden", !isMock);
   ui.vision.landolt.classList.remove("landolt-up", "landolt-right", "landolt-down", "landolt-left");
   ui.vision.landolt.classList.add("landolt-" + targetDirection);
+  setText(ui.vision.feedback, showCorrectFeedback ? "あってます！" : "");
   ui.vision.answerButtons.forEach((button) => {
     button.classList.toggle("is-selected", button.dataset.answer === state.selectedAnswer);
+    button.disabled = showCorrectFeedback;
   });
   setText(ui.vision.progressLabel, answeredCount + " / " + state.questionDirections.length);
   setText(ui.vision.timerLabel, state.completed ? "おわり" : (targetEye === "left" ? "ひだりめ " : "みぎめ ") + ((answeredCount % 4) + 1) + " / 4");
@@ -1630,15 +1731,7 @@ async function startMode(mode) {
   state.settings = readSettings();
   state.stillPhase = state.settings.examType === "jibika" ? "front" : "single";
   if (mode === "vision") {
-    state.questionDirections = createVisionQuestionSet();
-    state.questionIndex = 0;
-    state.selectedAnswer = "";
-    state.successLocked = false;
-    state.eyeConfirmed = false;
-    state.instructionStartedAt = 0;
-    state.confirmStartedAt = 0;
-    state.lastTargetEye = "left";
-    state.requiresNeutralBeforeConfirm = false;
+    resetVisionProgressState(state);
   }
   state.statusMessage = "";
   renderAll();
