@@ -34,6 +34,8 @@ const VISION_EYE_OCCLUDED_MAX = 0.035;
 const VISION_EYE_RELAXED_BONUS = 0.08;
 const VISION_EYE_OPEN_MIN = 0.08;
 const VISION_ANSWER_FEEDBACK_MS = 900;
+const VISION_EYE_VISIBILITY_MIN = 0.06;
+const VISION_EYE_VISIBILITY_DELTA = 0.018;
 const STILL_FRONT_YAW_MIN = 0.72;
 const STILL_FRONT_YAW_MAX = 1.34;
 const STILL_SIDE_YAW_LEFT_MAX = 0.48;
@@ -1197,6 +1199,10 @@ function getVisionEyeState(snapshot, settings) {
   const rightEyeRatio = Number(snapshot?.rightEyeRatio || 0);
   const rawLeftEyeRatio = Number(snapshot?.rawLeftEyeRatio || leftEyeRatio || 0);
   const rawRightEyeRatio = Number(snapshot?.rawRightEyeRatio || rightEyeRatio || 0);
+  const leftEyeVisibilityScore = Number(snapshot?.leftEyeVisibilityScore || 0);
+  const rightEyeVisibilityScore = Number(snapshot?.rightEyeVisibilityScore || 0);
+  const leftEyeMeanLuma = Number(snapshot?.leftEyeMeanLuma || 0);
+  const rightEyeMeanLuma = Number(snapshot?.rightEyeMeanLuma || 0);
   const threshold = Number(settings.eyeClosedThreshold || DEFAULT_SETTINGS.eyeClosedThreshold);
   const leftThreshold = threshold;
   const rightThreshold = threshold + RIGHT_EYE_THRESHOLD_BONUS;
@@ -1205,11 +1211,17 @@ function getVisionEyeState(snapshot, settings) {
   const leftOpenCandidate = Math.max(leftEyeRatio, rawLeftEyeRatio);
   const rightOpenCandidate = Math.max(rightEyeRatio, rawRightEyeRatio);
   const leftOccluded =
+    (leftEyeVisibilityScore > 0 &&
+      leftEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
+      rightEyeVisibilityScore > leftEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
     rawLeftEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
     (leftCloseCandidate > 0 &&
       leftCloseCandidate < leftThreshold + VISION_EYE_RELAXED_BONUS &&
       rightOpenCandidate > VISION_EYE_OPEN_MIN);
   const rightOccluded =
+    (rightEyeVisibilityScore > 0 &&
+      rightEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
+      leftEyeVisibilityScore > rightEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
     rawRightEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
     (rightCloseCandidate > 0 &&
       rightCloseCandidate < rightThreshold + VISION_EYE_RELAXED_BONUS &&
@@ -1238,6 +1250,10 @@ function getVisionEyeState(snapshot, settings) {
     rightEyeRatio,
     rawLeftEyeRatio,
     rawRightEyeRatio,
+    leftEyeVisibilityScore,
+    rightEyeVisibilityScore,
+    leftEyeMeanLuma,
+    rightEyeMeanLuma,
     leftCloseCandidate,
     rightCloseCandidate,
     leftOpenCandidate,
@@ -1658,12 +1674,12 @@ function renderVision() {
           ? isMock
             ? "ぼたんを おして かためを とじる れんしゅうが できます。"
             : targetEye === "left"
-              ? "ひだりめ を とじてください。"
-              : "みぎめ を とじてください。"
+              ? "ひだりめ を かくしてください。"
+              : "みぎめ を かくしてください。"
           : !eyeMatched
             ? targetEye === "left"
-              ? "ひだりめ を とじてください。"
-              : "みぎめ を とじてください。"
+              ? "ひだりめ を かくしてください。"
+              : "みぎめ を かくしてください。"
             : showCorrectFeedback
               ? "あってます！ つぎへ すすみます。"
               : !state.selectedAnswer
