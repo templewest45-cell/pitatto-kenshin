@@ -36,6 +36,9 @@ const VISION_EYE_OPEN_MIN = 0.08;
 const VISION_ANSWER_FEEDBACK_MS = 900;
 const VISION_EYE_VISIBILITY_MIN = 0.06;
 const VISION_EYE_VISIBILITY_DELTA = 0.018;
+const VISION_EYE_DARK_RATIO_MIN = 0.62;
+const VISION_EYE_DARK_RATIO_DELTA = 0.18;
+const VISION_EYE_DARK_LUMA_MAX = 72;
 const STILL_FRONT_YAW_MIN = 0.72;
 const STILL_FRONT_YAW_MAX = 1.34;
 const STILL_SIDE_YAW_LEFT_MAX = 0.48;
@@ -1203,6 +1206,8 @@ function getVisionEyeState(snapshot, settings) {
   const rightEyeVisibilityScore = Number(snapshot?.rightEyeVisibilityScore || 0);
   const leftEyeMeanLuma = Number(snapshot?.leftEyeMeanLuma || 0);
   const rightEyeMeanLuma = Number(snapshot?.rightEyeMeanLuma || 0);
+  const leftEyeDarkRatio = Number(snapshot?.leftEyeDarkRatio || 0);
+  const rightEyeDarkRatio = Number(snapshot?.rightEyeDarkRatio || 0);
   const threshold = Number(settings.eyeClosedThreshold || DEFAULT_SETTINGS.eyeClosedThreshold);
   const leftThreshold = threshold;
   const rightThreshold = threshold + RIGHT_EYE_THRESHOLD_BONUS;
@@ -1210,7 +1215,18 @@ function getVisionEyeState(snapshot, settings) {
   const rightCloseCandidate = Math.min(rightEyeRatio, rawRightEyeRatio);
   const leftOpenCandidate = Math.max(leftEyeRatio, rawLeftEyeRatio);
   const rightOpenCandidate = Math.max(rightEyeRatio, rawRightEyeRatio);
+  const leftDarkOccluded =
+    leftEyeDarkRatio >= VISION_EYE_DARK_RATIO_MIN &&
+    leftEyeMeanLuma > 0 &&
+    leftEyeMeanLuma <= VISION_EYE_DARK_LUMA_MAX &&
+    leftEyeDarkRatio >= rightEyeDarkRatio + VISION_EYE_DARK_RATIO_DELTA;
+  const rightDarkOccluded =
+    rightEyeDarkRatio >= VISION_EYE_DARK_RATIO_MIN &&
+    rightEyeMeanLuma > 0 &&
+    rightEyeMeanLuma <= VISION_EYE_DARK_LUMA_MAX &&
+    rightEyeDarkRatio >= leftEyeDarkRatio + VISION_EYE_DARK_RATIO_DELTA;
   const leftOccluded =
+    leftDarkOccluded ||
     (leftEyeVisibilityScore > 0 &&
       leftEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
       rightEyeVisibilityScore > leftEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
@@ -1219,6 +1235,7 @@ function getVisionEyeState(snapshot, settings) {
       leftCloseCandidate < leftThreshold + VISION_EYE_RELAXED_BONUS &&
       rightOpenCandidate > VISION_EYE_OPEN_MIN);
   const rightOccluded =
+    rightDarkOccluded ||
     (rightEyeVisibilityScore > 0 &&
       rightEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
       leftEyeVisibilityScore > rightEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
@@ -1254,6 +1271,8 @@ function getVisionEyeState(snapshot, settings) {
     rightEyeVisibilityScore,
     leftEyeMeanLuma,
     rightEyeMeanLuma,
+    leftEyeDarkRatio,
+    rightEyeDarkRatio,
     leftCloseCandidate,
     rightCloseCandidate,
     leftOpenCandidate,

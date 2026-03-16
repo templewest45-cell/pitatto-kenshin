@@ -8,6 +8,8 @@ const DEFAULT_SNAPSHOT = {
   rightEyeVisibilityScore: 0,
   leftEyeMeanLuma: 0,
   rightEyeMeanLuma: 0,
+  leftEyeDarkRatio: 0,
+  rightEyeDarkRatio: 0,
   source: "mediapipe",
   providerLabel: "AI detector",
 };
@@ -118,6 +120,8 @@ export class MediaPipeVisionDetector {
       rightEyeVisibilityScore: eyeImageMetrics.right.visibilityScore,
       leftEyeMeanLuma: eyeImageMetrics.left.meanLuma,
       rightEyeMeanLuma: eyeImageMetrics.right.meanLuma,
+      leftEyeDarkRatio: eyeImageMetrics.left.darkRatio,
+      rightEyeDarkRatio: eyeImageMetrics.right.darkRatio,
       eyeClosedThreshold: this.eyeClosedThreshold,
       source: "mediapipe",
       providerLabel: "AI detector",
@@ -169,13 +173,13 @@ function computeEyeRatio(landmarks, indices) {
 function analyzeEyeRegion(context, videoWidth, videoHeight, landmarks, indices) {
   const box = computeEyeBounds(landmarks, indices, videoWidth, videoHeight);
   if (!box) {
-    return { visibilityScore: 0, meanLuma: 0 };
+      return { visibilityScore: 0, meanLuma: 0, darkRatio: 0 };
   }
 
   const imageData = context.getImageData(box.x, box.y, box.width, box.height);
   const data = imageData.data;
   if (!data.length) {
-    return { visibilityScore: 0, meanLuma: 0 };
+    return { visibilityScore: 0, meanLuma: 0, darkRatio: 0 };
   }
 
   let sum = 0;
@@ -183,6 +187,7 @@ function analyzeEyeRegion(context, videoWidth, videoHeight, landmarks, indices) 
   let count = 0;
   let edgeSum = 0;
   let edgeCount = 0;
+  let darkCount = 0;
   const strideX = Math.max(1, Math.floor(box.width / 18));
   const strideY = Math.max(1, Math.floor(box.height / 12));
 
@@ -193,6 +198,9 @@ function analyzeEyeRegion(context, videoWidth, videoHeight, landmarks, indices) 
       sum += luma;
       sumSquares += luma * luma;
       count += 1;
+      if (luma < 52) {
+        darkCount += 1;
+      }
 
       if (x + strideX < box.width) {
         const rightIndex = (y * box.width + (x + strideX)) * 4;
@@ -213,9 +221,11 @@ function analyzeEyeRegion(context, videoWidth, videoHeight, landmarks, indices) 
   const variance = count ? Math.max(sumSquares / count - meanLuma * meanLuma, 0) : 0;
   const contrastScore = Math.sqrt(variance) / 255;
   const edgeScore = edgeCount ? edgeSum / edgeCount / 255 : 0;
+  const darkRatio = count ? darkCount / count : 0;
   return {
     visibilityScore: contrastScore * 0.55 + edgeScore * 0.45,
     meanLuma,
+    darkRatio,
   };
 }
 
