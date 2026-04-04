@@ -14,10 +14,10 @@ const DEFAULT_SNAPSHOT = {
   providerLabel: "AI detector",
 };
 
-// MediaPipe Face Landmarker uses 33-133 for the subject's right eye
-// and 362-263 for the subject's left eye.
-const LEFT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
-const RIGHT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
+// In this app's camera pipeline, these landmark groups map more reliably
+// when treated as the user's left/right eyes in the opposite arrangement.
+const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
+const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
 
 export class MediaPipeVisionDetector {
   constructor({ video, eyeClosedThreshold }) {

@@ -704,6 +704,68 @@ function getVisionAnsweredCount(state) {
   return Math.min(state.questionIndex, state.questionDirections.length);
 }
 
+function formatDebugNumber(value, digits = 3) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  return Number(value).toFixed(digits);
+}
+
+function buildVisionDebugText(state, eyeState) {
+  const targetEye = getVisionTargetEye(state);
+  const video = ui.vision.video;
+  const resolution =
+    video && video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth + "x" + video.videoHeight : "-";
+  return [
+    "target=" +
+      targetEye +
+      " closed=" +
+      eyeState.closedEye +
+      " oneEye=" +
+      eyeState.oneEyeClosed +
+      " confirmed=" +
+      state.eyeConfirmed,
+    "neutralWait=" +
+      state.requiresNeutralBeforeConfirm +
+      " bothTracked=" +
+      eyeState.bothEyesTracked +
+      " bothOpen=" +
+      eyeState.bothEyesOpen,
+    "L ratio=" +
+      formatDebugNumber(eyeState.leftEyeRatio) +
+      " raw=" +
+      formatDebugNumber(eyeState.rawLeftEyeRatio) +
+      " vis=" +
+      formatDebugNumber(eyeState.leftEyeVisibilityScore) +
+      " dark=" +
+      formatDebugNumber(eyeState.leftEyeDarkRatio) +
+      " luma=" +
+      formatDebugNumber(eyeState.leftEyeMeanLuma, 1) +
+      " occ=" +
+      eyeState.leftOccluded,
+    "R ratio=" +
+      formatDebugNumber(eyeState.rightEyeRatio) +
+      " raw=" +
+      formatDebugNumber(eyeState.rawRightEyeRatio) +
+      " vis=" +
+      formatDebugNumber(eyeState.rightEyeVisibilityScore) +
+      " dark=" +
+      formatDebugNumber(eyeState.rightEyeDarkRatio) +
+      " luma=" +
+      formatDebugNumber(eyeState.rightEyeMeanLuma, 1) +
+      " occ=" +
+      eyeState.rightOccluded,
+    "threshold L=" +
+      formatDebugNumber(eyeState.leftThreshold, 2) +
+      " R=" +
+      formatDebugNumber(eyeState.rightThreshold, 2) +
+      " openMin=" +
+      formatDebugNumber(VISION_EYE_OPEN_MIN, 2) +
+      " camera=" +
+      resolution,
+  ].join("\n");
+}
+
 function showError(message) {
   const text = message instanceof Error ? message.message : String(message);
   console.error(text);
@@ -1230,19 +1292,13 @@ function getVisionEyeState(snapshot, settings) {
     (leftEyeVisibilityScore > 0 &&
       leftEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
       rightEyeVisibilityScore > leftEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
-    rawLeftEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
-    (leftCloseCandidate > 0 &&
-      leftCloseCandidate < leftThreshold + VISION_EYE_RELAXED_BONUS &&
-      rightOpenCandidate > VISION_EYE_OPEN_MIN);
+    rawLeftEyeRatio <= VISION_EYE_OCCLUDED_MAX;
   const rightOccluded =
     rightDarkOccluded ||
     (rightEyeVisibilityScore > 0 &&
       rightEyeVisibilityScore < VISION_EYE_VISIBILITY_MIN &&
       leftEyeVisibilityScore > rightEyeVisibilityScore + VISION_EYE_VISIBILITY_DELTA) ||
-    rawRightEyeRatio <= VISION_EYE_OCCLUDED_MAX ||
-    (rightCloseCandidate > 0 &&
-      rightCloseCandidate < rightThreshold + VISION_EYE_RELAXED_BONUS &&
-      leftOpenCandidate > VISION_EYE_OPEN_MIN);
+    rawRightEyeRatio <= VISION_EYE_OCCLUDED_MAX;
   const leftClosed =
     (leftCloseCandidate > 0 &&
       leftCloseCandidate < leftThreshold &&
@@ -1256,6 +1312,15 @@ function getVisionEyeState(snapshot, settings) {
       leftOpenCandidate - rightCloseCandidate > RIGHT_EYE_CLOSED_DELTA) ||
     rightOccluded;
   const oneEyeClosed = (leftClosed && !rightClosed) || (rightClosed && !leftClosed);
+  const bothEyesTracked =
+    leftOpenCandidate > VISION_EYE_OPEN_MIN &&
+    rightOpenCandidate > VISION_EYE_OPEN_MIN &&
+    !leftOccluded &&
+    !rightOccluded;
+  const bothEyesOpen =
+    bothEyesTracked &&
+    leftCloseCandidate >= leftThreshold &&
+    rightCloseCandidate >= rightThreshold;
   let closedEye = "none";
   if (leftClosed && !rightClosed) {
     closedEye = "left";
@@ -1284,6 +1349,8 @@ function getVisionEyeState(snapshot, settings) {
     rightOccluded,
     leftClosed,
     rightClosed,
+    bothEyesTracked,
+    bothEyesOpen,
     oneEyeClosed,
     closedEye,
   };
@@ -1331,6 +1398,7 @@ function updateVisionCompletion() {
   const state = modeStates.vision;
   const eyeState = getVisionEyeState(state.snapshot, state.settings);
   const targetEye = getVisionTargetEye(state);
+  const strongCurrentMatch = isVisionEyeInstructionConfirmed(state);
 
   if (state.lastTargetEye !== targetEye) {
     state.lastTargetEye = targetEye;
@@ -1339,12 +1407,12 @@ function updateVisionCompletion() {
     state.requiresNeutralBeforeConfirm = true;
   }
 
-  if (state.requiresNeutralBeforeConfirm && !eyeState.oneEyeClosed) {
+  if (state.requiresNeutralBeforeConfirm && (eyeState.bothEyesOpen || strongCurrentMatch)) {
     state.requiresNeutralBeforeConfirm = false;
   }
 
   const canConfirmEye = !state.requiresNeutralBeforeConfirm;
-  const confirmationDetected = canConfirmEye && isVisionEyeInstructionConfirmed(state);
+  const confirmationDetected = canConfirmEye && strongCurrentMatch;
   if (!state.eyeConfirmed && confirmationDetected) {
     if (!state.confirmStartedAt) {
       state.confirmStartedAt = Date.now();
@@ -1715,7 +1783,8 @@ function renderVision() {
   ui.vision.landolt.classList.toggle("is-visible", readyForQuestion && !state.completed);
   ui.vision.feedback.classList.toggle("is-visible", showCorrectFeedback);
   ui.vision.answerGrid.classList.toggle("is-visible", readyForQuestion && !state.completed);
-  ui.vision.debugLabel.classList.add("hidden");
+  ui.vision.debugLabel.classList.remove("hidden");
+  setText(ui.vision.debugLabel, buildVisionDebugText(state, eyeState));
   ui.vision.manualTrigger.classList.toggle("hidden", !isMock);
   ui.vision.landolt.classList.remove("landolt-up", "landolt-right", "landolt-down", "landolt-left");
   ui.vision.landolt.classList.add("landolt-" + targetDirection);
