@@ -140,7 +140,6 @@ const ui = {
     progressFill: document.getElementById("vision-progress-fill"),
     timerLabel: document.getElementById("vision-timer-label"),
     scoreLabel: document.getElementById("vision-score-label"),
-    debugLabel: document.getElementById("vision-debug-label"),
     promptText: document.getElementById("vision-prompt-text"),
     celebration: document.getElementById("vision-celebration"),
     eyeCoach: document.getElementById("vision-eye-coach"),
@@ -577,15 +576,14 @@ function getStillHeartGuideSvg() {
   return [
     '<svg class="guide-heart-svg" viewBox="0 0 300 180" aria-hidden="true">',
     '  <rect x="10" y="18" width="280" height="144" rx="34" fill="rgba(15,23,42,0.10)" stroke="rgba(255,255,255,0.96)" stroke-width="6" stroke-dasharray="10 8"></rect>',
-    '  <circle cx="72" cy="90" r="42" fill="rgba(250,204,21,0.16)" stroke="#facc15" stroke-width="10"></circle>',
-    '  <circle cx="72" cy="90" r="28" fill="none" stroke="rgba(255,255,255,0.96)" stroke-width="5" stroke-dasharray="8 5"></circle>',
-    '  <rect x="116" y="62" width="116" height="56" rx="28" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" stroke-width="6"></rect>',
-    '  <line x1="232" y1="76" x2="270" y2="62" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"></line>',
-    '  <line x1="232" y1="104" x2="270" y2="118" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"></line>',
-    '  <line x1="152" y1="62" x2="136" y2="36" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"></line>',
-    '  <line x1="152" y1="118" x2="136" y2="144" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"></line>',
-    '  <text x="72" y="148" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="800">かお</text>',
-    '  <text x="252" y="148" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">あし</text>',
+    '  <path d="M72 90 L232 58 L232 122 Z" fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="6" stroke-dasharray="10 8" stroke-linejoin="round"></path>',
+    '  <circle cx="72" cy="90" r="34" fill="rgba(250,204,21,0.18)" stroke="#facc15" stroke-width="10"></circle>',
+    '  <circle cx="232" cy="58" r="24" fill="rgba(56,189,248,0.16)" stroke="#38bdf8" stroke-width="8"></circle>',
+    '  <circle cx="232" cy="122" r="24" fill="rgba(56,189,248,0.16)" stroke="#38bdf8" stroke-width="8"></circle>',
+    '  <circle cx="72" cy="90" r="22" fill="none" stroke="rgba(255,255,255,0.96)" stroke-width="5" stroke-dasharray="8 5"></circle>',
+    '  <circle cx="232" cy="58" r="14" fill="none" stroke="rgba(255,255,255,0.96)" stroke-width="4" stroke-dasharray="6 4"></circle>',
+    '  <circle cx="232" cy="122" r="14" fill="none" stroke="rgba(255,255,255,0.96)" stroke-width="4" stroke-dasharray="6 4"></circle>',
+    '  <text x="150" y="164" text-anchor="middle" fill="#f8fafc" font-size="17" font-weight="800">3つの てんで さんかくを つくろう</text>',
     "</svg>",
   ].join("");
 }
@@ -596,8 +594,8 @@ function renderStillGuideFrame(examType, stillPhase) {
   }
 
   if (examType === "shindenzu") {
-    ui.still.guideFrame.innerHTML = "";
-    ui.still.guideBody = ui.still.guideFrame.querySelector(".guide-body");
+    ui.still.guideFrame.innerHTML = '<div class="guide-heart-svg-wrap" aria-hidden="true">' + getStillHeartGuideSvg() + "</div>";
+    ui.still.guideBody = null;
     ui.still.guideFrame.classList.add("guide-heart-mode");
     return;
   }
@@ -702,68 +700,6 @@ function getVisionTargetEye(state) {
 
 function getVisionAnsweredCount(state) {
   return Math.min(state.questionIndex, state.questionDirections.length);
-}
-
-function formatDebugNumber(value, digits = 3) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-  return Number(value).toFixed(digits);
-}
-
-function buildVisionDebugText(state, eyeState) {
-  const targetEye = getVisionTargetEye(state);
-  const video = ui.vision.video;
-  const resolution =
-    video && video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth + "x" + video.videoHeight : "-";
-  return [
-    "target=" +
-      targetEye +
-      " closed=" +
-      eyeState.closedEye +
-      " oneEye=" +
-      eyeState.oneEyeClosed +
-      " confirmed=" +
-      state.eyeConfirmed,
-    "neutralWait=" +
-      state.requiresNeutralBeforeConfirm +
-      " bothTracked=" +
-      eyeState.bothEyesTracked +
-      " bothOpen=" +
-      eyeState.bothEyesOpen,
-    "L ratio=" +
-      formatDebugNumber(eyeState.leftEyeRatio) +
-      " raw=" +
-      formatDebugNumber(eyeState.rawLeftEyeRatio) +
-      " vis=" +
-      formatDebugNumber(eyeState.leftEyeVisibilityScore) +
-      " dark=" +
-      formatDebugNumber(eyeState.leftEyeDarkRatio) +
-      " luma=" +
-      formatDebugNumber(eyeState.leftEyeMeanLuma, 1) +
-      " occ=" +
-      eyeState.leftOccluded,
-    "R ratio=" +
-      formatDebugNumber(eyeState.rightEyeRatio) +
-      " raw=" +
-      formatDebugNumber(eyeState.rawRightEyeRatio) +
-      " vis=" +
-      formatDebugNumber(eyeState.rightEyeVisibilityScore) +
-      " dark=" +
-      formatDebugNumber(eyeState.rightEyeDarkRatio) +
-      " luma=" +
-      formatDebugNumber(eyeState.rightEyeMeanLuma, 1) +
-      " occ=" +
-      eyeState.rightOccluded,
-    "threshold L=" +
-      formatDebugNumber(eyeState.leftThreshold, 2) +
-      " R=" +
-      formatDebugNumber(eyeState.rightThreshold, 2) +
-      " openMin=" +
-      formatDebugNumber(VISION_EYE_OPEN_MIN, 2) +
-      " camera=" +
-      resolution,
-  ].join("\n");
 }
 
 function showError(message) {
@@ -1715,9 +1651,12 @@ function renderStillV6() {
   const hasFace = Boolean(state.snapshot?.hasFace);
   const active = stillActive(state);
   const bodyInFrame = Boolean(state.snapshot?.bodyInFrame);
+  const headInFrame = Boolean(state.snapshot?.headInFrame);
+  const topFootInFrame = Boolean(state.snapshot?.topFootInFrame);
+  const bottomFootInFrame = Boolean(state.snapshot?.bottomFootInFrame);
 
-  ui.still.heartFaceFrame.classList.remove("hidden");
-  setText(ui.still.cameraHelp, "ひだりに あたま、みぎに あしで、わくに おさまるように よこになりましょう。");
+  ui.still.heartFaceFrame.classList.add("hidden");
+  setText(ui.still.cameraHelp, "あたまと あし 2かしょが、さんかくの しるしに はいるように よこになりましょう。");
   setText(ui.still.detectorState, active ? "わく OK" : !hasFace ? "かおまち" : !bodyInFrame ? "わく外" : "うごき中");
   setText(
     ui.still.promptText,
@@ -1726,10 +1665,22 @@ function renderStillV6() {
       : active
         ? "そのまま きーぷ。"
         : !bodyInFrame
-          ? "わくに おさまるように よこになりましょう。"
-          : "わく OK。うごかないで じっと しよう。",
+          ? "あたまと あし 2かしょを、さんかくの しるしに あわせよう。"
+          : "3つの てんを そのまま きーぷしよう。",
   );
-  setText(ui.still.scoreLabel, "うごき " + score.toFixed(4) + " / " + Number(state.settings.stillThreshold).toFixed(4) + " | わく: " + (bodyInFrame ? "OK" : "NG"));
+  setText(
+    ui.still.scoreLabel,
+    "うごき " +
+      score.toFixed(4) +
+      " / " +
+      Number(state.settings.stillThreshold).toFixed(4) +
+      " | あたま:" +
+      (headInFrame ? "OK" : "NG") +
+      " あし1:" +
+      (topFootInFrame ? "OK" : "NG") +
+      " あし2:" +
+      (bottomFootInFrame ? "OK" : "NG"),
+  );
 }
 
 function renderVision() {
@@ -1783,8 +1734,6 @@ function renderVision() {
   ui.vision.landolt.classList.toggle("is-visible", readyForQuestion && !state.completed);
   ui.vision.feedback.classList.toggle("is-visible", showCorrectFeedback);
   ui.vision.answerGrid.classList.toggle("is-visible", readyForQuestion && !state.completed);
-  ui.vision.debugLabel.classList.remove("hidden");
-  setText(ui.vision.debugLabel, buildVisionDebugText(state, eyeState));
   ui.vision.manualTrigger.classList.toggle("hidden", !isMock);
   ui.vision.landolt.classList.remove("landolt-up", "landolt-right", "landolt-down", "landolt-left");
   ui.vision.landolt.classList.add("landolt-" + targetDirection);

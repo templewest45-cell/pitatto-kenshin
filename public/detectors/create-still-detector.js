@@ -1,6 +1,6 @@
 import { MockStillDetector } from "./mock-still-detector.js";
 
-const INIT_TIMEOUT_MS = 4000;
+const INIT_TIMEOUT_MS = 10000;
 
 export async function createStillDetector({ button, video, examType, onStatus }) {
   onStatus && onStatus("Loading AI still detector.");

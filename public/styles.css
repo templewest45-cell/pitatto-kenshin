@@ -511,7 +511,7 @@ select {
 }
 
 .guide-frame.guide-heart-mode .guide-heart-svg-wrap {
-  display: none;
+  display: grid;
 }
 
 .guide-face-turn {
@@ -997,18 +997,6 @@ select {
   margin: 0.75rem 0 0;
   font-weight: 700;
   color: var(--accent-strong);
-}
-
-.vision-debug-label {
-  margin: 0.5rem 0 0;
-  padding: 0.75rem 0.9rem;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.9);
-  color: #e2e8f0;
-  font-size: 0.82rem;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .celebration {

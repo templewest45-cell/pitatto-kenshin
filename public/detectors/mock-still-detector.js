@@ -31,6 +31,9 @@ export class MockStillDetector {
       hasFace: true,
       earVisible: this.still,
       bodyInFrame: this.still,
+      headInFrame: this.still,
+      topFootInFrame: this.still,
+      bottomFootInFrame: this.still,
       source: "mock",
       providerLabel: "Mock detector",
     };
