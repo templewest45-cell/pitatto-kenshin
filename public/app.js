@@ -34,14 +34,14 @@ const EYE_OPEN_FLOOR = 0.16;
 const RIGHT_EYE_OPEN_FLOOR = 0.135;
 const RIGHT_EYE_THRESHOLD_BONUS = 0.045;
 const VISION_EYE_CONFIRM_HOLD_MS = 1200;
-const VISION_EYE_OCCLUDED_MAX = 0.035;
-const VISION_EYE_RELAXED_BONUS = 0.08;
+const VISION_EYE_OCCLUDED_MAX = 0.05;
+const VISION_EYE_RELAXED_BONUS = 0.12;
 const VISION_EYE_OPEN_MIN = 0.08;
 const VISION_ANSWER_FEEDBACK_MS = 900;
-const VISION_EYE_VISIBILITY_MIN = 0.06;
-const VISION_EYE_VISIBILITY_DELTA = 0.018;
-const VISION_EYE_DARK_RATIO_MIN = 0.62;
-const VISION_EYE_DARK_RATIO_DELTA = 0.18;
+const VISION_EYE_VISIBILITY_MIN = 0.085;
+const VISION_EYE_VISIBILITY_DELTA = 0.01;
+const VISION_EYE_DARK_RATIO_MIN = 0.56;
+const VISION_EYE_DARK_RATIO_DELTA = 0.12;
 const VISION_EYE_DARK_LUMA_MAX = 72;
 const STILL_FRONT_YAW_MIN = 0.72;
 const STILL_FRONT_YAW_MAX = 1.34;
@@ -1738,14 +1738,14 @@ function isVisionEyeInstructionConfirmed(state) {
     return (
       ((eyeState.leftCloseCandidate > 0 && eyeState.leftCloseCandidate < relaxedThreshold) ||
         eyeState.leftOccluded) &&
-      eyeState.rightOpenCandidate > VISION_EYE_OPEN_MIN
+      eyeState.rightOpenCandidate > VISION_EYE_OPEN_MIN * 0.8
     );
   }
 
   return (
     ((eyeState.rightCloseCandidate > 0 && eyeState.rightCloseCandidate < relaxedThreshold) ||
       eyeState.rightOccluded) &&
-    eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN
+    eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN * 0.8
   );
 }
 
