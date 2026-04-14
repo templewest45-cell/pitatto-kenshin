@@ -1713,22 +1713,16 @@ function getVisionEyeState(snapshot, settings) {
 
 function canCompleteVision(state) {
   const eyeState = getVisionEyeState(state.snapshot, state.settings);
+  const targetEye = getVisionTargetEye(state);
   return (
     Boolean(state.snapshot?.hasFace) &&
-    eyeState.oneEyeClosed &&
-    eyeState.closedEye === getVisionTargetEye(state) &&
+    isVisionTargetEyeMatched(eyeState, targetEye) &&
     state.selectedAnswer === getVisionTargetDirection(state)
   );
 }
 
-function isVisionEyeInstructionConfirmed(state) {
-  const eyeState = getVisionEyeState(state.snapshot, state.settings);
-  const targetEye = getVisionTargetEye(state);
+function isVisionTargetEyeMatched(eyeState, targetEye) {
   const relaxedThreshold = eyeState.threshold + VISION_EYE_RELAXED_BONUS;
-
-  if (!state.snapshot?.hasFace) {
-    return false;
-  }
 
   if (eyeState.closedEye === targetEye) {
     return true;
@@ -1745,8 +1739,18 @@ function isVisionEyeInstructionConfirmed(state) {
   return (
     ((eyeState.rightCloseCandidate > 0 && eyeState.rightCloseCandidate < relaxedThreshold) ||
       eyeState.rightOccluded) &&
-    eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN * 0.8
+    (eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN * 0.8 ||
+      (eyeState.leftOccluded && eyeState.leftOpenCandidate > VISION_EYE_OPEN_MIN * 0.5))
   );
+}
+
+function isVisionEyeInstructionConfirmed(state) {
+  if (!state.snapshot?.hasFace) {
+    return false;
+  }
+  const eyeState = getVisionEyeState(state.snapshot, state.settings);
+  const targetEye = getVisionTargetEye(state);
+  return isVisionTargetEyeMatched(eyeState, targetEye);
 }
 
 function updateVisionCompletion() {
@@ -2124,7 +2128,7 @@ function renderVision() {
   const targetEye = getVisionTargetEye(state);
   const answeredCount = getVisionAnsweredCount(state);
   const correct = state.selectedAnswer && state.selectedAnswer === targetDirection;
-  const eyeMatched = eyeState.closedEye === targetEye;
+  const eyeMatched = isVisionTargetEyeMatched(eyeState, targetEye);
   const readyForQuestion = hasFace && state.eyeConfirmed;
   const showCorrectFeedback = state.answerFeedback === "correct" && state.answerFeedbackUntil > Date.now();
 
@@ -2132,7 +2136,7 @@ function renderVision() {
   setText(ui.vision.providerHelp, "");
   setText(
     ui.vision.detectorState,
-    state.completed ? "できた" : showCorrectFeedback ? "せいかい" : !hasFace ? "かおまち" : !eyeState.oneEyeClosed ? "目まち" : !eyeMatched ? "ちがう目" : !state.selectedAnswer ? "こたえまち" : correct ? "せいかい" : "ちがう",
+    state.completed ? "できた" : showCorrectFeedback ? "せいかい" : !hasFace ? "かおまち" : !eyeMatched ? "目まち" : !state.selectedAnswer ? "こたえまち" : correct ? "せいかい" : "ちがう",
   );
   setText(
     ui.vision.promptText,
@@ -2140,19 +2144,15 @@ function renderVision() {
       ? SUCCESS_MESSAGE
       : !hasFace
         ? "かおを わくに あわせてください。"
-        : !eyeState.oneEyeClosed
+        : !eyeMatched
           ? isMock
             ? "ぼたんを おして かためを とじる れんしゅうが できます。"
             : targetEye === "left"
               ? "ひだりめ を かくしてください。"
               : "みぎめ を かくしてください。"
-          : !eyeMatched
-            ? targetEye === "left"
-              ? "ひだりめ を かくしてください。"
-              : "みぎめ を かくしてください。"
-            : showCorrectFeedback
-              ? "あってます！ つぎへ すすみます。"
-              : !state.selectedAnswer
+          : showCorrectFeedback
+            ? "あってます！ つぎへ すすみます。"
+            : !state.selectedAnswer
               ? "C の あいている むきを えらんでください。"
               : correct
                 ? "せいかい。つぎへ すすみます。"
