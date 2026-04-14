@@ -1125,6 +1125,222 @@ select {
   }
 }
 
+.hearing-course-art,
+.hearing-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  overflow: hidden;
+}
+
+.hearing-course-art {
+  width: 100%;
+  height: 100%;
+  min-height: 10rem;
+}
+
+.hearing-course-wave,
+.hearing-stage-wave {
+  position: absolute;
+  border: 5px solid rgba(13, 148, 136, 0.9);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transform: rotate(45deg);
+}
+
+.hearing-course-wave-1,
+.hearing-stage-wave-1 {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.hearing-course-wave-2,
+.hearing-stage-wave-2 {
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.hearing-course-wave-3,
+.hearing-stage-wave-3 {
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+.hearing-face {
+  position: relative;
+  width: min(44vw, 12rem);
+  height: min(44vw, 12rem);
+  border-radius: 999px 999px 0 0;
+  border: 14px solid #0f766e;
+  border-bottom: none;
+  background: transparent;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+.hearing-face-inner {
+  position: absolute;
+  left: 50%;
+  bottom: 28%;
+  width: 42%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #99f6e4, #5eead4);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.55),
+    0 10px 18px rgba(15, 118, 110, 0.22);
+}
+
+.hearing-ear {
+  position: absolute;
+  top: 38%;
+  width: 22%;
+  height: 34%;
+  border: 6px solid #0f766e;
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, #f8fafc, #ccfbf1);
+  box-shadow:
+    inset 0 0 0 5px rgba(45, 212, 191, 0.3),
+    0 12px 20px rgba(15, 23, 42, 0.12);
+}
+
+.hearing-ear-left {
+  left: 4%;
+}
+
+.hearing-ear-right {
+  right: 4%;
+}
+
+.hearing-stage-wave {
+  border-width: 4px;
+  border-color: rgba(45, 212, 191, 0.92);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  opacity: 0.95;
+}
+
+.hearing-stage-wave-1 {
+  width: 3.2rem;
+  height: 3.2rem;
+  left: 8%;
+}
+
+.hearing-stage-wave-2 {
+  width: 4.8rem;
+  height: 4.8rem;
+  right: 9%;
+}
+
+.hearing-stage-wave-3 {
+  width: 6.2rem;
+  height: 6.2rem;
+  right: 3%;
+  top: 18%;
+}
+
+.hearing-touchpad {
+  display: grid;
+  gap: 0.35rem;
+  width: min(100%, 24rem);
+  margin: 1rem auto 0;
+  padding: 1.2rem 1rem;
+  border: 3px solid #0f766e;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, rgba(153, 246, 228, 0.72), rgba(204, 251, 241, 0.96) 55%, #f8fafc 100%);
+  color: #134e4a;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.hearing-touchpad:active {
+  transform: scale(0.98);
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);
+}
+
+.hearing-touchpad-label {
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+.hearing-touchpad-subtext {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgba(19, 78, 74, 0.76);
+}
+
+.hearing-control-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+  width: min(100%, 30rem);
+  flex: 1 1 22rem;
+}
+
+.hearing-control-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+.hearing-control-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.hearing-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.hearing-hero-row .hero-copy {
+  flex: 1 1 18rem;
+  margin: 0;
+}
+
+.hearing-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 0;
+}
+
+.hearing-preview-frequency-button {
+  border: 2px solid #0f766e;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f0fdfa, #ccfbf1);
+  color: #134e4a;
+  font: inherit;
+  font-weight: 800;
+  padding: 1rem 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.14);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.hearing-preview-frequency-button:hover,
+.hearing-preview-frequency-button:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.18);
+  background: linear-gradient(180deg, #ccfbf1, #99f6e4);
+}
+
 @media (max-width: 900px) {
   .home-hero-layout {
     grid-template-columns: 1fr;
@@ -1150,6 +1366,10 @@ select {
 
   .status-strip,
   .mode-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hearing-control-row {
     grid-template-columns: 1fr;
   }
 }

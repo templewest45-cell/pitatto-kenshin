@@ -1,6 +1,6 @@
 ﻿window.__appModuleLoaded = true;
 
-const CACHE_NAME = "kenshin-dekitayo-v99";
+const CACHE_NAME = "kenshin-dekitayo-v110";
 const SETTINGS_KEY = "kenshin-dekitayo.settings";
 const MOUTH_EEE_GAP_THRESHOLD_MIN = 0.1;
 const SUCCESS_MESSAGE = "じょうずに できた すごい！";
@@ -19,6 +19,10 @@ const DEFAULT_SETTINGS = {
   mouthEeeGapThreshold: 0.1,
   stillThreshold: 0.018,
   eyeClosedThreshold: 0.19,
+  audioVolume: 0.35,
+  hearingRepeatCount: 4,
+  hearingMode: "single",
+  hearingFrequency: 1000,
   muted: false,
   hideCamera: false,
   examType: "naika",
@@ -43,7 +47,13 @@ const STILL_FRONT_YAW_MIN = 0.72;
 const STILL_FRONT_YAW_MAX = 1.34;
 const STILL_SIDE_YAW_LEFT_MAX = 0.48;
 const STILL_SIDE_YAW_RIGHT_MIN = 2.05;
-const SCREEN_NAMES = ["home", "mouth", "still", "vision"];
+const HEARING_REQUIRED_RESPONSES = 4;
+const HEARING_CUE_DELAY_MIN_MS = 1200;
+const HEARING_CUE_DELAY_MAX_MS = 2600;
+const HEARING_RESPONSE_WINDOW_MS = 3000;
+const HEARING_TOUCH_GUARD_MS = 3000;
+const HEARING_SEQUENCE_FREQUENCIES = [125, 250, 500, 1000, 2000, 4000, 8000];
+const SCREEN_NAMES = ["home", "mouth", "still", "vision", "hearing", "hearing-preview-list"];
 
 const ui = {
   appError: document.getElementById("app-error"),
@@ -68,6 +78,12 @@ const ui = {
   stillThresholdValue: document.getElementById("setting-still-threshold-value"),
   eyeThreshold: document.getElementById("setting-eye-threshold"),
   eyeThresholdValue: document.getElementById("setting-eye-threshold-value"),
+  audioVolume: document.getElementById("setting-audio-volume"),
+  audioVolumeValue: document.getElementById("setting-audio-volume-value"),
+  hearingRepeatCount: document.getElementById("setting-hearing-repeat-count"),
+  hearingRepeatCountValue: document.getElementById("setting-hearing-repeat-count-value"),
+  hearingMode: document.getElementById("setting-hearing-mode"),
+  hearingFrequency: document.getElementById("setting-hearing-frequency"),
   examType: document.getElementById("setting-exam-type"),
   stillImage: document.getElementById("setting-still-image"),
   stillImagePreview: document.getElementById("setting-still-image-preview"),
@@ -83,12 +99,17 @@ const ui = {
   startMouthMode: document.getElementById("start-mouth-mode"),
   startStillMode: document.getElementById("start-still-mode"),
   startVisionMode: document.getElementById("start-vision-mode"),
+  startHearingMode: document.getElementById("start-hearing-mode"),
+  openHearingPreviewList: document.getElementById("open-hearing-preview-list"),
   backHomeMouth: document.getElementById("back-home-mouth"),
   backHomeStill: document.getElementById("back-home-still"),
   backHomeVision: document.getElementById("back-home-vision"),
+  backHomeHearing: document.getElementById("back-home-hearing"),
+  backHearingFromPreviewList: document.getElementById("back-hearing-from-preview-list"),
   settingsTriggerMouth: document.getElementById("settings-trigger-mouth"),
   settingsTriggerStill: document.getElementById("settings-trigger-still"),
   settingsTriggerVision: document.getElementById("settings-trigger-vision"),
+  settingsTriggerHearing: document.getElementById("settings-trigger-hearing"),
   mouth: {
     video: document.getElementById("camera"),
     cameraState: document.getElementById("camera-state"),
@@ -148,6 +169,29 @@ const ui = {
     answerGrid: document.getElementById("vision-answer-grid"),
     answerButtons: Array.from(document.querySelectorAll("#vision-answer-grid .answer-button")),
   },
+  hearing: {
+    screen: document.getElementById("hearing-screen"),
+    hero: document.querySelector("#hearing-screen .hero"),
+    heroCopy: document.querySelector("#hearing-screen .hero-copy"),
+    firstCard: document.querySelector("#hearing-screen .card"),
+    detectorState: document.getElementById("hearing-detector-state"),
+    providerChip: document.getElementById("hearing-provider-chip"),
+    providerHelp: document.getElementById("hearing-provider-help"),
+    progressLabel: document.getElementById("hearing-progress-label"),
+    progressFill: document.getElementById("hearing-progress-fill"),
+    timerLabel: document.getElementById("hearing-timer-label"),
+    scoreLabel: document.getElementById("hearing-score-label"),
+    promptText: document.getElementById("hearing-prompt-text"),
+    celebration: document.getElementById("hearing-celebration"),
+    startButton: document.getElementById("hearing-start-button"),
+    stopButton: document.getElementById("hearing-stop-button"),
+    touchpad: document.getElementById("hearing-touchpad"),
+    touchpadHelp: document.getElementById("hearing-touchpad-help"),
+  },
+  hearingPreview: {
+    listScreen: document.getElementById("hearing-preview-list-screen"),
+    frequencyButtons: Array.from(document.querySelectorAll("[data-preview-frequency]")),
+  },
 };
 
 ui.settingFields = {
@@ -158,6 +202,10 @@ ui.settingFields = {
   mouthEeeGapThreshold: ui.mouthEeeGapThreshold ? ui.mouthEeeGapThreshold.closest(".field") : null,
   stillThreshold: ui.stillThreshold ? ui.stillThreshold.closest(".field") : null,
   eyeThreshold: ui.eyeThreshold ? ui.eyeThreshold.closest(".field") : null,
+  audioVolume: ui.audioVolume ? ui.audioVolume.closest(".field") : null,
+  hearingRepeatCount: ui.hearingRepeatCount ? ui.hearingRepeatCount.closest(".field") : null,
+  hearingMode: ui.hearingMode ? ui.hearingMode.closest(".field") : null,
+  hearingFrequency: ui.hearingFrequency ? ui.hearingFrequency.closest(".field") : null,
   examType: ui.examType ? ui.examType.closest(".field") : null,
   stillImage: ui.stillImage ? ui.stillImage.closest(".field") : null,
 };
@@ -166,6 +214,7 @@ const modeStates = {
   mouth: createBaseState(),
   still: createBaseState(),
   vision: createVisionState(),
+  hearing: createHearingState(),
 };
 
 let currentMode = "home";
@@ -207,6 +256,23 @@ function createVisionState() {
     answerFeedback: "",
     answerFeedbackUntil: 0,
     advanceTimeoutId: 0,
+  };
+}
+
+function createHearingState() {
+  return {
+    ...createBaseState(),
+    cueTimeoutId: 0,
+    cueActive: false,
+    responseDeadlineAt: 0,
+    heardCount: 0,
+    feedback: "",
+    examRunning: false,
+    sequenceIndex: 0,
+    currentFrequency: DEFAULT_SETTINGS.hearingFrequency,
+    cueStartedAt: 0,
+    lastTouchAt: 0,
+    previewFrequency: DEFAULT_SETTINGS.hearingFrequency,
   };
 }
 
@@ -440,12 +506,17 @@ function getAudioContext() {
   return audioContext;
 }
 
+function getAudioVolume(settings = readSettings()) {
+  return Math.max(0.01, Math.min(Number(settings.audioVolume || DEFAULT_SETTINGS.audioVolume), 1));
+}
+
 function playVisionCorrectSound() {
   const ctx = getAudioContext();
   if (!ctx) {
     return;
   }
 
+  const volume = getAudioVolume();
   const now = ctx.currentTime;
   const notes = [
     { frequency: 988.0, duration: 0.12, delay: 0 },
@@ -457,7 +528,7 @@ function playVisionCorrectSound() {
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(note.frequency, now + note.delay);
     gain.gain.setValueAtTime(0.0001, now + note.delay);
-    gain.gain.exponentialRampToValueAtTime(0.12, now + note.delay + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.12 * volume, now + note.delay + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + note.delay + note.duration);
     oscillator.connect(gain);
     gain.connect(ctx.destination);
@@ -472,6 +543,7 @@ function playSuccessFanfare() {
     return;
   }
 
+  const volume = getAudioVolume();
   const now = ctx.currentTime;
   const notes = [523.25, 659.25, 783.99, 1046.5];
   notes.forEach((frequency, index) => {
@@ -480,13 +552,310 @@ function playSuccessFanfare() {
     oscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(frequency, now + index * 0.11);
     gain.gain.setValueAtTime(0.0001, now + index * 0.11);
-    gain.gain.exponentialRampToValueAtTime(0.16, now + index * 0.11 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.16 * volume, now + index * 0.11 + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.11 + 0.24);
     oscillator.connect(gain);
     gain.connect(ctx.destination);
     oscillator.start(now + index * 0.11);
     oscillator.stop(now + index * 0.11 + 0.26);
   });
+}
+
+function primeAudioContext() {
+  getAudioContext();
+}
+
+function clearHearingCueTimeout(state) {
+  if (state.cueTimeoutId) {
+    clearTimeout(state.cueTimeoutId);
+    state.cueTimeoutId = 0;
+  }
+}
+
+function getHearingMode(settings = readSettings()) {
+  return settings.hearingMode === "ascending" ? "ascending" : "single";
+}
+
+function getHearingTargetCount(settings = readSettings()) {
+  const repeatCount = Math.max(1, Number(settings.hearingRepeatCount || DEFAULT_SETTINGS.hearingRepeatCount));
+  return getHearingMode(settings) === "ascending" ? HEARING_SEQUENCE_FREQUENCIES.length * repeatCount : repeatCount;
+}
+
+function getHearingCueFrequency(state, settings = state.settings || readSettings()) {
+  if (getHearingMode(settings) === "ascending") {
+    return HEARING_SEQUENCE_FREQUENCIES[state.sequenceIndex % HEARING_SEQUENCE_FREQUENCIES.length];
+  }
+  return Number(settings.hearingFrequency || DEFAULT_SETTINGS.hearingFrequency);
+}
+
+function resetHearingState(state) {
+  clearHearingCueTimeout(state);
+  state.cueActive = false;
+  state.responseDeadlineAt = 0;
+  state.heardCount = 0;
+  state.feedback = "";
+  state.examRunning = false;
+  state.sequenceIndex = 0;
+  state.currentFrequency = Number((state.settings || readSettings()).hearingFrequency || DEFAULT_SETTINGS.hearingFrequency);
+  state.cueStartedAt = 0;
+  state.lastTouchAt = 0;
+}
+
+function canPlayHearingCue() {
+  if (readSettings().muted) {
+    return false;
+  }
+  return Boolean(window.AudioContext || window.webkitAudioContext);
+}
+
+function playHearingCueSound() {
+  return playHearingPureTone(Number(readSettings().hearingFrequency || DEFAULT_SETTINGS.hearingFrequency));
+}
+
+function playHearingPureTone(frequency) {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return false;
+  }
+
+  const settings = readSettings();
+  const volume = getAudioVolume(settings);
+  const now = ctx.currentTime;
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.03);
+  gain.gain.setValueAtTime(volume, now + 0.42);
+  gain.gain.linearRampToValueAtTime(0.0001, now + 0.5);
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.52);
+
+  return true;
+}
+
+function scheduleHearingCue(state) {
+  clearHearingCueTimeout(state);
+  if (!state.started || state.completed || !state.examRunning) {
+    return;
+  }
+  if (!canPlayHearingCue()) {
+    state.feedback = "audio-off";
+    return;
+  }
+  const targetCount = getHearingTargetCount(state.settings);
+  if (state.heardCount >= targetCount) {
+    state.completed = true;
+    state.examRunning = false;
+    renderAll();
+    return;
+  }
+
+  const frequency = getHearingCueFrequency(state, state.settings);
+
+  const delay = HEARING_CUE_DELAY_MIN_MS + Math.round(Math.random() * (HEARING_CUE_DELAY_MAX_MS - HEARING_CUE_DELAY_MIN_MS));
+  state.cueTimeoutId = window.setTimeout(() => {
+    state.cueTimeoutId = 0;
+    if (!state.started || state.completed || !state.examRunning) {
+      return;
+    }
+    if (state.lastTouchAt && Date.now() - state.lastTouchAt < HEARING_TOUCH_GUARD_MS) {
+      state.feedback = "too-soon";
+      scheduleHearingCue(state);
+      renderAll();
+      return;
+    }
+    state.currentFrequency = frequency;
+    if (!playHearingPureTone(frequency)) {
+      state.feedback = "audio-off";
+      renderAll();
+      return;
+    }
+    state.cueStartedAt = Date.now();
+    state.cueActive = true;
+    state.responseDeadlineAt = state.cueStartedAt + HEARING_RESPONSE_WINDOW_MS;
+    state.feedback = "cue";
+    renderAll();
+  }, delay);
+}
+
+function startHearingExam() {
+  const state = modeStates.hearing;
+  state.settings = readSettings();
+  resetHearingState(state);
+  if (!state.started) {
+    return;
+  }
+  if (!canPlayHearingCue()) {
+    state.feedback = "audio-off";
+    renderAll();
+    return;
+  }
+  state.examRunning = true;
+  state.feedback = "";
+  scheduleHearingCue(state);
+  renderAll();
+}
+
+function stopHearingExam() {
+  const state = modeStates.hearing;
+  clearHearingCueTimeout(state);
+  state.cueActive = false;
+  state.cueStartedAt = 0;
+  state.responseDeadlineAt = 0;
+  state.examRunning = false;
+  if (!state.completed) {
+    state.feedback = "stopped";
+  }
+  renderAll();
+}
+
+function handleHearingTouch() {
+  const state = modeStates.hearing;
+  const now = Date.now();
+  state.lastTouchAt = now;
+  if (!state.started || state.completed) {
+    return;
+  }
+  if (!state.examRunning) {
+    state.feedback = "stopped";
+    renderAll();
+    return;
+  }
+  if (!canPlayHearingCue()) {
+    state.feedback = "audio-off";
+    renderAll();
+    return;
+  }
+  if (!state.cueActive) {
+    state.feedback = "early";
+    renderAll();
+    return;
+  }
+  if (!state.cueStartedAt || now - state.cueStartedAt > HEARING_RESPONSE_WINDOW_MS) {
+    state.cueActive = false;
+    state.cueStartedAt = 0;
+    state.responseDeadlineAt = 0;
+    state.feedback = "miss";
+    scheduleHearingCue(state);
+    renderAll();
+    return;
+  }
+
+  state.cueActive = false;
+  state.cueStartedAt = 0;
+  state.responseDeadlineAt = 0;
+  state.heardCount += 1;
+  if (getHearingMode(state.settings) === "ascending") {
+    state.sequenceIndex += 1;
+  }
+  const targetCount = getHearingTargetCount(state.settings);
+  state.progressSeconds = (state.heardCount / targetCount) * state.settings.targetSeconds;
+  state.feedback = "heard";
+  if (state.heardCount >= targetCount) {
+    state.completed = true;
+    state.examRunning = false;
+  } else {
+    scheduleHearingCue(state);
+  }
+  renderAll();
+}
+
+function playPreviewFrequency(frequency) {
+  const state = modeStates.hearing;
+  state.previewFrequency = frequency;
+  playHearingPureTone(frequency);
+  renderAll();
+}
+
+function setupHearingCourseCardUi() {
+  const card = ui.startHearingMode?.closest(".mode-card");
+  if (!card) {
+    return;
+  }
+
+  const titleText = card.querySelector(".course-title span:last-child");
+  const supportText = card.querySelector(".support-text");
+  const listItems = card.querySelectorAll(".course-list li");
+  const artWrap = card.querySelector(".course-card-art");
+
+  setText(titleText, "おとをきいてタッチ");
+  if (supportText) {
+    supportText.innerHTML =
+      "音が聞こえたら画面をタッチして、聴力検査の流れを練習します。<br />※ヘッドホンやイヤホンを使った練習を推奨";
+  }
+  if (listItems[0]) {
+    setText(listItems[0], "音をきく");
+  }
+  if (listItems[1]) {
+    setText(listItems[1], "おとをきいてタッチ");
+  }
+  if (artWrap) {
+    artWrap.innerHTML =
+      '<img class="course-card-art-image" src="./assets/Gemini_Generated_Image_bv4rt7bv4rt7bv4r.png" alt="聴力コースのイラスト" />';
+  }
+}
+
+function ensureHearingRepeatSettingField() {
+  if (ui.hearingRepeatCount && ui.hearingRepeatCountValue) {
+    return;
+  }
+  const anchorField = ui.hearingMode?.closest(".field");
+  if (!anchorField) {
+    return;
+  }
+
+  const field = document.createElement("label");
+  field.className = "field";
+  field.innerHTML =
+    '<span>聴力回数</span>' +
+    '<input id="setting-hearing-repeat-count" type="range" min="1" max="8" step="1" value="' +
+    DEFAULT_SETTINGS.hearingRepeatCount +
+    '" />' +
+    '<output id="setting-hearing-repeat-count-value">' +
+    DEFAULT_SETTINGS.hearingRepeatCount +
+    "</output>";
+  anchorField.parentNode.insertBefore(field, anchorField);
+
+  ui.hearingRepeatCount = document.getElementById("setting-hearing-repeat-count");
+  ui.hearingRepeatCountValue = document.getElementById("setting-hearing-repeat-count-value");
+  ui.settingFields.hearingRepeatCount = ui.hearingRepeatCount ? ui.hearingRepeatCount.closest(".field") : null;
+}
+
+function setupHearingPreviewInlineUi() {
+  if (!ui.hearing.hero || !ui.openHearingPreviewList || !ui.hearing.heroCopy || !ui.hearing.firstCard) {
+    return;
+  }
+
+  const controlRow = ui.hearing.startButton?.parentElement;
+  let row = ui.hearing.hero.querySelector(".hearing-hero-row");
+  if (!row) {
+    row = document.createElement("div");
+    row.className = "hearing-hero-row";
+    ui.hearing.heroCopy.insertAdjacentElement("beforebegin", row);
+  }
+
+  if (ui.hearing.heroCopy.parentElement !== row) {
+    row.appendChild(ui.hearing.heroCopy);
+  }
+  if (controlRow && controlRow.parentElement !== row) {
+    row.appendChild(controlRow);
+  }
+  if (controlRow && ui.openHearingPreviewList.parentElement !== controlRow) {
+    controlRow.insertBefore(ui.openHearingPreviewList, ui.hearing.startButton || null);
+  }
+  ui.openHearingPreviewList.textContent = "検査音を聞いてみる";
+  setText(ui.hearing.heroCopy, "おとを よく きいて、きこえたら すぐに タッチ してみよう。");
+  setText(ui.hearing.startButton, "スタート");
+  setText(ui.hearing.stopButton, "ストップ");
+  setText(ui.backHomeHearing, "もどる");
+  setText(ui.backHearingFromPreviewList, "もどる");
+  setText(document.querySelector("#hearing-preview-list-screen .hero-copy"), "ききたい Hz を おすと、そのまま ピーおん が なります。");
+  setText(document.querySelector("#hearing-preview-list-screen .card-heading h2"), "Hz 一覧");
+  setText(document.querySelector("#hearing-preview-list-screen .card-heading .status-chip"), "試し聞き");
 }
 
 function clearVisionAdvanceTimeout(state) {
@@ -733,6 +1102,20 @@ function fillSettingsForm(settings) {
   ui.stillThresholdValue.value = Number(settings.stillThreshold).toFixed(3);
   ui.eyeThreshold.value = String(settings.eyeClosedThreshold);
   ui.eyeThresholdValue.value = Number(settings.eyeClosedThreshold).toFixed(2);
+  ui.audioVolume.value = String(settings.audioVolume);
+  ui.audioVolumeValue.value = Number(settings.audioVolume).toFixed(2);
+  if (ui.hearingRepeatCount) {
+    ui.hearingRepeatCount.value = String(settings.hearingRepeatCount || DEFAULT_SETTINGS.hearingRepeatCount);
+  }
+  if (ui.hearingRepeatCountValue) {
+    ui.hearingRepeatCountValue.value = String(settings.hearingRepeatCount || DEFAULT_SETTINGS.hearingRepeatCount);
+  }
+  if (ui.hearingMode) {
+    ui.hearingMode.value = settings.hearingMode || DEFAULT_SETTINGS.hearingMode;
+  }
+  if (ui.hearingFrequency) {
+    ui.hearingFrequency.value = String(settings.hearingFrequency);
+  }
   if (ui.examType) {
     ui.examType.value = settings.examType;
   }
@@ -761,15 +1144,23 @@ function applyTeacherSettingsLabels() {
   setFieldLabel(ui.mouthEeeGapThreshold, "イー 縦開き下限");
   setFieldLabel(ui.stillThreshold, "静止しきい値");
   setFieldLabel(ui.eyeThreshold, "片目閉じしきい値");
+  setFieldLabel(ui.audioVolume, "音量");
+  setFieldLabel(ui.hearingRepeatCount, "聴力回数");
+  setFieldLabel(ui.hearingMode, "聴力モード");
+  setFieldLabel(ui.hearingFrequency, "聴力周波数");
   setFieldLabel(ui.examType, "検査種類");
   setFieldLabel(ui.stillImage, "静止モード画像");
+  const audioFieldSpans = ui.audioVolume?.closest(".field")?.querySelectorAll("span");
+  if (audioFieldSpans && audioFieldSpans.length > 1) {
+    Array.from(audioFieldSpans).slice(1).forEach((node) => node.classList.add("hidden"));
+  }
   setCheckboxLabel(ui.hideCamera, "カメラを隠す");
   setCheckboxLabel(ui.muted, "音を出さない");
   setText(document.querySelector("#settings-dialog .settings-header h2"), "設定");
   setText(ui.closeSettings, "閉じる");
   setText(ui.saveSettings, "設定を保存");
   setText(ui.resetProgress, "判定とゲージをリセット");
-  [ui.settingsTriggerMouth, ui.settingsTriggerStill, ui.settingsTriggerVision].forEach((button) => {
+  [ui.settingsTriggerMouth, ui.settingsTriggerStill, ui.settingsTriggerVision, ui.settingsTriggerHearing].forEach((button) => {
     if (button) {
       button.textContent = "⚙";
       button.setAttribute("aria-label", "設定");
@@ -804,6 +1195,13 @@ function readSettingsForm() {
       ),
     stillThreshold: Number(ui.stillThreshold.value) || DEFAULT_SETTINGS.stillThreshold,
     eyeClosedThreshold: Number(ui.eyeThreshold.value) || DEFAULT_SETTINGS.eyeClosedThreshold,
+    audioVolume: Number(ui.audioVolume.value) || DEFAULT_SETTINGS.audioVolume,
+    hearingRepeatCount: Math.max(
+      1,
+      Number((ui.hearingRepeatCount && ui.hearingRepeatCount.value) || DEFAULT_SETTINGS.hearingRepeatCount),
+    ),
+    hearingMode: (ui.hearingMode && ui.hearingMode.value) || readSettings().hearingMode || DEFAULT_SETTINGS.hearingMode,
+    hearingFrequency: Number(ui.hearingFrequency.value) || DEFAULT_SETTINGS.hearingFrequency,
     examType: (ui.examType && ui.examType.value) || readSettings().examType || DEFAULT_SETTINGS.examType,
     stillPromptImage: pendingStillImageDataUrl === null ? readSettings().stillPromptImage || "" : pendingStillImageDataUrl,
     hideCamera: Boolean(ui.hideCamera.checked),
@@ -816,6 +1214,8 @@ function syncSettingsVisibility(settings) {
   const isStillMode = currentMode === "still";
   const isMouthMode = currentMode === "mouth";
   const isVisionMode = currentMode === "vision";
+  const isHearingMode = currentMode === "hearing";
+  const hearingMode = settings.hearingMode || DEFAULT_SETTINGS.hearingMode;
 
   toggleHidden(ui.settingFields.targetSeconds, !(isMouthMode || (isStillMode && examType !== "shindenzu")));
   toggleHidden(ui.settingFields.ecgTargetSeconds, !(isStillMode && examType === "shindenzu"));
@@ -824,6 +1224,10 @@ function syncSettingsVisibility(settings) {
   toggleHidden(ui.settingFields.mouthEeeGapThreshold, !isMouthMode);
   toggleHidden(ui.settingFields.stillThreshold, !isStillMode);
   toggleHidden(ui.settingFields.eyeThreshold, !isVisionMode);
+  toggleHidden(ui.settingFields.audioVolume, false);
+  toggleHidden(ui.settingFields.hearingRepeatCount, !isHearingMode);
+  toggleHidden(ui.settingFields.hearingMode, !isHearingMode);
+  toggleHidden(ui.settingFields.hearingFrequency, !(isHearingMode && hearingMode === "single"));
   toggleHidden(ui.settingFields.examType, true);
   toggleHidden(ui.settingFields.stillImage, !isStillMode);
 }
@@ -1058,6 +1462,9 @@ function stopMode(mode, keepVisualState) {
   state.started = false;
   state.loading = false;
   state.lastTickAt = 0;
+  if (mode === "hearing") {
+    clearHearingCueTimeout(state);
+  }
 
   if (!keepVisualState) {
     state.snapshot = null;
@@ -1065,6 +1472,9 @@ function stopMode(mode, keepVisualState) {
     state.completed = false;
     state.statusMessage = "";
     state.stillPhase = "single";
+    if (mode === "hearing") {
+      resetHearingState(state);
+    }
     if (mode === "vision") {
       resetVisionProgressState(state);
     }
@@ -1086,6 +1496,7 @@ function resetAllProgress() {
   stopMode("mouth", false);
   stopMode("still", false);
   stopMode("vision", false);
+  stopMode("hearing", false);
   renderAll();
   if (currentMode !== "home") {
     window.setTimeout(() => startMode(currentMode), 0);
@@ -1094,7 +1505,7 @@ function resetAllProgress() {
 
 function openMode(mode) {
   currentMode = mode;
-  ["mouth", "still", "vision"].forEach((name) => {
+  ["mouth", "still", "vision", "hearing"].forEach((name) => {
     if (name !== mode) {
       stopMode(name, false);
     }
@@ -1116,6 +1527,14 @@ function openMode(mode) {
   if (mode === "still") {
     modeStates.still.examSelectionPending = true;
     renderAll();
+    return;
+  }
+  if (mode === "hearing-preview-list") {
+    renderAll();
+    return;
+  }
+  if (mode === "hearing") {
+    startMode(mode).catch(showError);
     return;
   }
   ensureCamera(mode).then(() => startMode(mode)).catch(showError);
@@ -1383,6 +1802,19 @@ function updateVisionCompletion() {
 function tickMode(mode, now) {
   const state = modeStates[mode];
   if (!state.started) {
+    return;
+  }
+
+  if (mode === "hearing") {
+    if (state.cueActive && state.responseDeadlineAt && Date.now() > state.responseDeadlineAt) {
+      state.cueActive = false;
+      state.cueStartedAt = 0;
+      state.responseDeadlineAt = 0;
+      state.feedback = "miss";
+      scheduleHearingCue(state);
+    }
+    renderAll();
+    state.rafId = requestAnimationFrame((nextNow) => tickMode(mode, nextNow));
     return;
   }
 
@@ -1747,12 +2179,103 @@ function renderVision() {
   setWidth(ui.vision.progressFill, (answeredCount / state.questionDirections.length) * 100 + "%");
   syncCompletionEffects(ui.vision, state);
 }
+
+function renderHearing() {
+  const state = modeStates.hearing;
+  const settings = state.settings || readSettings();
+  const audioReady = canPlayHearingCue();
+  const heardCount = state.heardCount;
+  const targetCount = getHearingTargetCount(settings);
+  const percent = Math.round((heardCount / targetCount) * 100);
+  const hearingMode = getHearingMode(settings);
+  const frequency = getHearingCueFrequency(state, settings);
+  const repeatCount = Math.max(1, Number(settings.hearingRepeatCount || DEFAULT_SETTINGS.hearingRepeatCount));
+  const modeLabel = hearingMode === "ascending" ? "ひくい音から順番" : "おなじ高さ";
+  const waitingForStart = !state.examRunning && !state.completed;
+
+  setText(ui.hearing.providerChip, audioReady ? "おと ON" : "おと OFF");
+  setText(
+    ui.hearing.providerHelp,
+    audioReady
+      ? hearingMode === "ascending"
+        ? "125 Hz から 8000 Hz までを " + repeatCount + " しゅう します。いまは " + frequency + " Hz です。"
+        : frequency + " Hz の じゅんおんを " + repeatCount + " かい ならします。"
+      : "せっていで おと を ON にすると、ちょうりょくコースを つかえます。",
+  );
+  setText(
+    ui.hearing.detectorState,
+    state.completed
+      ? "できた"
+      : !audioReady
+        ? "おと OFF"
+        : waitingForStart
+          ? "たいき"
+        : state.cueActive
+          ? state.currentFrequency + " Hz"
+          : state.feedback === "heard"
+            ? "せいこう"
+            : state.feedback === "miss"
+              ? "もういちど"
+              : state.feedback === "too-soon"
+                ? "つぎをまつ"
+              : state.feedback === "early"
+                ? "はやい"
+                : state.feedback === "stopped"
+                  ? "ストップ"
+                  : "おとまち",
+  );
+  setText(
+    ui.hearing.promptText,
+    state.completed
+      ? SUCCESS_MESSAGE
+      : !audioReady
+        ? "せっていで おと を ON にしてから はじめてください。"
+        : waitingForStart
+          ? "スタートを おすと " + modeLabel + " モードで けんさを はじめます。"
+        : state.cueActive
+          ? "きこえたら すぐに タッチ。"
+          : state.feedback === "heard"
+            ? "よく きけたね。つぎの おとを まとう。"
+            : state.feedback === "miss"
+              ? "こんどは おとが なったら タッチしてみよう。"
+              : state.feedback === "too-soon"
+                ? "つぎの おとを まってね。"
+              : state.feedback === "early"
+                ? "まだ おとが なっていません。おとを まってね。"
+                : state.feedback === "stopped"
+                  ? "ストップしました。もういちど はじめるときは スタートを おしてください。"
+                  : "おとが なるまで まっていてね。",
+  );
+  setText(ui.hearing.scoreLabel, heardCount + " / " + targetCount + " かい");
+  setText(
+    ui.hearing.touchpadHelp,
+    !audioReady
+      ? "せっていで おと を ON にしてください。"
+      : waitingForStart
+        ? "スタートしてから タッチします。"
+      : state.cueActive
+        ? "おとが なってから 3びょう いないに タッチします。"
+        : "れんだせず、おとが なってから 3びょう いないに タッチします。",
+  );
+  if (ui.hearing.startButton) {
+    ui.hearing.startButton.disabled = !audioReady || state.examRunning;
+  }
+  if (ui.hearing.stopButton) {
+    ui.hearing.stopButton.disabled = !state.examRunning;
+  }
+  setText(ui.hearing.progressLabel, heardCount + " / " + targetCount);
+  setText(ui.hearing.timerLabel, percent + "%");
+  setWidth(ui.hearing.progressFill, percent + "%");
+  syncCompletionEffects(ui.hearing, state);
+}
+
 function renderAll() {
   renderMouthV2();
   renderStillV4();
   renderStillV5();
   renderStillV6();
   renderVision();
+  renderHearing();
   if (modeStates.mouth.completed) {
     setText(ui.mouth.promptText, SUCCESS_MESSAGE);
   }
@@ -1761,6 +2284,9 @@ function renderAll() {
   }
   if (modeStates.vision.completed) {
     setText(ui.vision.promptText, SUCCESS_MESSAGE);
+  }
+  if (modeStates.hearing.completed) {
+    setText(ui.hearing.promptText, SUCCESS_MESSAGE);
   }
   updateReadinessStatus();
 }
@@ -1783,6 +2309,9 @@ async function startMode(mode) {
   state.lastTickAt = 0;
   state.settings = readSettings();
   state.stillPhase = state.settings.examType === "jibika" ? "front" : "single";
+  if (mode === "hearing") {
+    resetHearingState(state);
+  }
   if (mode === "vision") {
     resetVisionProgressState(state);
   }
@@ -1790,6 +2319,12 @@ async function startMode(mode) {
   renderAll();
 
   try {
+    if (mode === "hearing") {
+      state.loading = false;
+      state.rafId = requestAnimationFrame((now) => tickMode(mode, now));
+      renderAll();
+      return;
+    }
     if (window.location.protocol === "file:") {
       if (mode === "mouth") {
         state.detector = new LocalMockMouthDetector(ui.mouth.manualTrigger);
@@ -1853,6 +2388,9 @@ function registerServiceWorker() {
 }
 
 function bindSlider(input, output, digits) {
+  if (!input || !output) {
+    return;
+  }
   input.addEventListener("input", () => {
     output.value = digits === 0 ? String(Number(input.value)) : Number(input.value).toFixed(digits);
   });
@@ -1862,12 +2400,27 @@ function installEvents() {
   ui.startMouthMode.addEventListener("click", () => openMode("mouth"));
   ui.startStillMode.addEventListener("click", () => openMode("still"));
   ui.startVisionMode.addEventListener("click", () => openMode("vision"));
+  ui.startHearingMode.addEventListener("click", () => openMode("hearing"));
+  ui.openHearingPreviewList.addEventListener("click", () => openMode("hearing-preview-list"));
+  ui.startMouthMode.addEventListener("click", primeAudioContext);
+  ui.startStillMode.addEventListener("click", primeAudioContext);
+  ui.startVisionMode.addEventListener("click", primeAudioContext);
+  ui.startHearingMode.addEventListener("click", primeAudioContext);
+  ui.openHearingPreviewList.addEventListener("click", primeAudioContext);
   ui.backHomeMouth.addEventListener("click", () => openMode("home"));
   ui.backHomeStill.addEventListener("click", () => openMode("home"));
   ui.backHomeVision.addEventListener("click", () => openMode("home"));
+  ui.backHomeHearing.addEventListener("click", () => openMode("home"));
+  ui.backHearingFromPreviewList.addEventListener("click", () => openMode("hearing"));
+  ui.hearing.startButton.addEventListener("click", () => {
+    primeAudioContext();
+    startHearingExam();
+  });
+  ui.hearing.stopButton.addEventListener("click", stopHearingExam);
   ui.settingsTriggerMouth.addEventListener("click", openSettings);
   ui.settingsTriggerStill.addEventListener("click", openSettings);
   ui.settingsTriggerVision.addEventListener("click", openSettings);
+  ui.settingsTriggerHearing.addEventListener("click", openSettings);
   ui.closeSettings.addEventListener("click", closeSettings);
   ui.saveSettings.addEventListener("click", async () => {
     try {
@@ -1909,6 +2462,18 @@ function installEvents() {
     ui.stillImage.value = "";
     updateStillImagePreview(getDefaultStillPromptImage(readSettings().examType || DEFAULT_SETTINGS.examType));
   });
+  ui.hearing.touchpad.addEventListener("click", handleHearingTouch);
+  if (ui.hearingMode) {
+    ui.hearingMode.addEventListener("change", () => {
+      syncSettingsVisibility(readSettingsForm());
+    });
+  }
+  ui.hearingPreview.frequencyButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const frequency = Number(button.dataset.previewFrequency || DEFAULT_SETTINGS.hearingFrequency);
+      playPreviewFrequency(frequency);
+    });
+  });
   ui.mouth.modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setMouthMode(button.dataset.mouthMode || "open");
@@ -1932,6 +2497,8 @@ function installEvents() {
   bindSlider(ui.mouthEeeGapThreshold, ui.mouthEeeGapThresholdValue, 2);
   bindSlider(ui.stillThreshold, ui.stillThresholdValue, 3);
   bindSlider(ui.eyeThreshold, ui.eyeThresholdValue, 2);
+  bindSlider(ui.audioVolume, ui.audioVolumeValue, 2);
+  bindSlider(ui.hearingRepeatCount, ui.hearingRepeatCountValue, 0);
   window.addEventListener("online", updateNetworkStatus);
   window.addEventListener("offline", updateNetworkStatus);
   window.addEventListener("error", (event) => showError(event.error || event.message || "unknown error"));
@@ -1940,7 +2507,13 @@ function installEvents() {
 
 function initFromHash() {
   const hash = (window.location.hash || "#home").replace(/^#/, "");
-  if (hash === "mouth" || hash === "still" || hash === "vision") {
+  if (
+    hash === "mouth" ||
+    hash === "still" ||
+    hash === "vision" ||
+    hash === "hearing" ||
+    hash === "hearing-preview-list"
+  ) {
     openMode(hash);
   } else {
     openMode("home");
@@ -1948,6 +2521,9 @@ function initFromHash() {
 }
 
 function init() {
+  setupHearingCourseCardUi();
+  ensureHearingRepeatSettingField();
+  setupHearingPreviewInlineUi();
   ensureVisionEyeCoach();
   applySuccessCopy();
   applyTeacherSettingsLabels();

@@ -25,10 +25,10 @@
         }
       })();
     </script>
-    <script defer src="./app.js?build=v99"></script>
+    <script defer src="./app.js?build=v110"></script>
   </head>
   <body>
-    <div class="debug-build-badge">Version 1.01</div>
+    <div class="debug-build-badge">Version 1.10</div>
     <div class="app-shell">
       <section id="home-screen" class="screen">
         <header class="hero home-hero">
@@ -103,6 +103,28 @@
               </div>
             </div>
             <button id="start-vision-mode" class="primary-button" type="button">視力コースを開始</button>
+          </section>
+
+          <section class="card mode-card mode-card-active">
+            <div class="course-card-layout">
+              <div class="course-card-copy">
+                <p class="mode-badge">聴力コース</p>
+                <h2 class="course-title"><span class="course-title-icon" aria-hidden="true">♪</span><span>おとが なったら<br />タッチ</span></h2>
+                <p class="support-text">音が聞こえたら画面をタッチして、聴力検査の流れを練習します。</p>
+                <ul class="course-list" aria-label="聴力コースの練習内容">
+                  <li>音を待つ</li>
+                  <li>聞こえたらタッチ</li>
+                </ul>
+              </div>
+              <div class="course-card-art course-card-art-side">
+                <div class="hearing-course-art" aria-hidden="true">
+                  <div class="hearing-course-wave hearing-course-wave-1"></div>
+                  <div class="hearing-course-wave hearing-course-wave-2"></div>
+                  <div class="hearing-course-wave hearing-course-wave-3"></div>
+                </div>
+              </div>
+            </div>
+            <button id="start-hearing-mode" class="primary-button" type="button">聴力コースを開始</button>
           </section>
         </main>
       </section>
@@ -325,6 +347,121 @@
           </section>
         </main>
       </section>
+
+      <section id="hearing-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-home-hearing" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">♪</span><span>おとが なったら<br />タッチ</span></h1>
+          <p class="hero-copy">おとを よく きいて、きこえたら すぐに タッチ してみよう。</p>
+          <button id="settings-trigger-hearing" class="settings-trigger" type="button" aria-label="設定" title="設定">⚙</button>
+        </header>
+
+        <main class="layout">
+          <section class="card">
+            <div class="card-heading">
+              <h2>れんしゅう</h2>
+              <span id="hearing-detector-state" class="status-chip">じゅんびOK</span>
+            </div>
+            <div class="hearing-stage" aria-hidden="true">
+              <div class="hearing-face">
+                <div class="hearing-ear hearing-ear-left"></div>
+                <div class="hearing-ear hearing-ear-right"></div>
+                <div class="hearing-face-inner"></div>
+              </div>
+              <div class="hearing-stage-wave hearing-stage-wave-1"></div>
+              <div class="hearing-stage-wave hearing-stage-wave-2"></div>
+              <div class="hearing-stage-wave hearing-stage-wave-3"></div>
+            </div>
+            <p id="hearing-prompt-text" class="prompt-text">おとが なるまで まっていてね。</p>
+            <p id="hearing-score-label" class="ratio-label">0 / 4 かい</p>
+            <div class="hearing-control-row">
+              <button id="hearing-start-button" class="primary-button hearing-control-button" type="button">スタート</button>
+              <button id="hearing-stop-button" class="secondary-button hearing-control-button" type="button">ストップ</button>
+            </div>
+            <button id="open-hearing-preview-list" class="secondary-button" type="button">Hz を きいてみる</button>
+            <button id="hearing-touchpad" class="hearing-touchpad" type="button">
+              <span class="hearing-touchpad-label">きこえたら ここを タッチ</span>
+              <span id="hearing-touchpad-help" class="hearing-touchpad-subtext">おとが なってから タッチします。</span>
+            </button>
+            <div id="hearing-celebration" class="celebration hidden">
+              <div class="confetti-layer"></div>
+              <span>じょうずに できた すごい！</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-heading">
+              <h2>がんばりメーター</h2>
+              <span id="hearing-provider-chip" class="status-chip">おと ON</span>
+            </div>
+            <p id="hearing-provider-help" class="support-text"></p>
+            <div class="progress-meta">
+              <span id="hearing-progress-label">0 / 4</span>
+              <strong id="hearing-timer-label">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div id="hearing-progress-fill" class="progress-fill"></div>
+            </div>
+          </section>
+        </main>
+      </section>
+
+      <section id="hearing-preview-list-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-hearing-from-preview-list" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">♪</span><span>Hz を えらぶ<br />しちょう</span></h1>
+          <p class="hero-copy">ききたい Hz を えらぶと、その おとを ならす 画面へ いきます。</p>
+        </header>
+
+        <main class="layout">
+          <section class="card">
+            <div class="card-heading">
+              <h2>Hz 一覧</h2>
+              <span class="status-chip">試し聞き</span>
+            </div>
+            <div id="hearing-preview-frequency-grid" class="hearing-preview-grid">
+              <button class="hearing-preview-frequency-button" data-preview-frequency="125" type="button">125 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="250" type="button">250 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="500" type="button">500 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="1000" type="button">1000 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="2000" type="button">2000 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="4000" type="button">4000 Hz</button>
+              <button class="hearing-preview-frequency-button" data-preview-frequency="8000" type="button">8000 Hz</button>
+            </div>
+          </section>
+        </main>
+      </section>
+
+      <section id="hearing-preview-tone-screen" class="screen hidden">
+        <header class="hero">
+          <button id="back-preview-list-from-tone" class="back-button" type="button">もどる</button>
+          <h1 class="screen-title"><span class="course-title-icon" aria-hidden="true">♪</span><span id="hearing-preview-title">1000 Hz<br />ピー</span></h1>
+          <p id="hearing-preview-copy" class="hero-copy">ボタンを おすと、えらんだ Hz の ピー音を もういちど ならします。</p>
+        </header>
+
+        <main class="layout">
+          <section class="card">
+            <div class="card-heading">
+              <h2>試し聞き</h2>
+              <span id="hearing-preview-status" class="status-chip">じゅんびOK</span>
+            </div>
+            <div class="hearing-stage" aria-hidden="true">
+              <div class="hearing-face">
+                <div class="hearing-ear hearing-ear-left"></div>
+                <div class="hearing-ear hearing-ear-right"></div>
+                <div class="hearing-face-inner"></div>
+              </div>
+              <div class="hearing-stage-wave hearing-stage-wave-1"></div>
+              <div class="hearing-stage-wave hearing-stage-wave-2"></div>
+              <div class="hearing-stage-wave hearing-stage-wave-3"></div>
+            </div>
+            <button id="replay-hearing-preview-tone" class="hearing-touchpad" type="button">
+              <span class="hearing-touchpad-label">もういちど ならす</span>
+              <span id="hearing-preview-help" class="hearing-touchpad-subtext">おすと えらんだ Hz の ピー音が なります。</span>
+            </button>
+          </section>
+        </main>
+      </section>
     </div>
 
     <dialog id="settings-dialog" class="settings-dialog">
@@ -378,6 +515,34 @@
 
         <label class="field">
           <span>けんさ しゅるい</span>
+          <span>音量</span>
+          <input id="setting-audio-volume" type="range" min="0.05" max="1.0" step="0.05" value="0.35" />
+          <output id="setting-audio-volume-value">0.35</output>
+        </label>
+
+        <label class="field">
+          <span>聴力モード</span>
+          <select id="setting-hearing-mode">
+            <option value="single">おなじ高さ</option>
+            <option value="ascending">ひくい音から順番</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>聴力周波数</span>
+          <select id="setting-hearing-frequency">
+            <option value="125">125 Hz</option>
+            <option value="250">250 Hz</option>
+            <option value="500">500 Hz</option>
+            <option value="1000">1000 Hz</option>
+            <option value="2000">2000 Hz</option>
+            <option value="4000">4000 Hz</option>
+            <option value="8000">8000 Hz</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>縺代ｓ縺・縺励ｅ繧九＞</span>
           <select id="setting-exam-type">
             <option value="naika">ないか</option>
             <option value="jibika">じびか</option>
